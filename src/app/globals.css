@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+body {
+  @apply bg-brand-bg text-brand-fg font-sans;
+}
+.container {
+  @apply max-w-6xl mx-auto px-4;
+}
+.card {
+  @apply rounded-2xl shadow-sm border border-neutral-200 bg-white;
+}

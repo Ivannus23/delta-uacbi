@@ -1,0 +1,200 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // la usa tu app en runtime (pooled 6543)
+  directUrl = env("DIRECT_URL") // la usa Prisma para migrar (directa 5432)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  role          Role      @default(AUTHOR)
+  bio           String?
+
+  // Talent profile
+  cvUrl          String?
+  skills         String[]
+  skillsVerified SkillVerification[] // como “usuario evaluado”
+
+  // Links
+  github   String?
+  linkedin String?
+  website  String?
+
+  languagePref String?
+
+  // NextAuth
+  accounts Account[]
+  sessions Session[]
+
+  // Proyectos (M:N)
+  projects Project[] @relation("ProjectAuthors")
+
+  // === Back-relations que faltaban ===
+  // Evaluaciones hechas por el revisor (para SkillVerification)
+  skillVerificationsGiven SkillVerification[] @relation("Reviewer")
+
+  // Reviews hechas por el revisor (para Review)
+  reviewsGiven Review[] @relation("ReviewReviewer")
+
+  // Inscripciones a concursos (M:N Registration <-> User)
+  registrations Registration[] @relation("RegistrationMembers")
+
+  // Avisos/Posts escritos por el autor
+  noticesAuthored Notice[] @relation("NoticeAuthor")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SkillVerification {
+  id          String   @id @default(cuid())
+  user        User     @relation(fields: [userId], references: [id])
+  userId      String
+  skill       String
+  reviewer    User     @relation("Reviewer", fields: [reviewerId], references: [id])
+  reviewerId  String
+  evidenceUrl String?
+  date        DateTime @default(now())
+}
+
+model Project {
+  id            String @id @default(cuid())
+  slug          String @unique
+  // i18n
+  titleES       String
+  titleEN       String
+  summaryES     String
+  summaryEN     String
+  descriptionES String
+  descriptionEN String
+
+  state    ProjectState @default(PENDING)
+  stack    String[]
+  tags     String[]
+  repoUrl  String?
+  demoUrl  String?
+  images   String[]
+  videoUrl String?
+  license  String?
+
+  // M:N con User
+  authors User[] @relation("ProjectAuthors")
+
+  reviews   Review[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Review {
+  id         String       @id @default(cuid())
+  project    Project      @relation(fields: [projectId], references: [id])
+  projectId  String
+  reviewer   User         @relation("ReviewReviewer", fields: [reviewerId], references: [id])
+  reviewerId String
+  state      ProjectState
+  notes      String?
+  createdAt  DateTime     @default(now())
+}
+
+model Contest {
+  id                   String    @id @default(cuid())
+  slug                 String    @unique
+  titleES              String
+  titleEN              String
+  descriptionES        String
+  descriptionEN        String
+  level                String
+  rulesUrl             String?
+  requiresDeliverables Boolean   @default(false)
+  openAt               DateTime
+  closeAt              DateTime
+  demoDay              DateTime?
+
+  registrations Registration[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Registration {
+  id              String   @id @default(cuid())
+  contest         Contest  @relation(fields: [contestId], references: [id])
+  contestId       String
+  // M:N con User
+  members         User[]   @relation("RegistrationMembers")
+  deliverableUrls String[]
+  status          String   @default("PENDING")
+  createdAt       DateTime @default(now())
+}
+
+model Notice {
+  id          String    @id @default(cuid())
+  slug        String    @unique
+  titleES     String
+  titleEN     String
+  contentES   String
+  contentEN   String
+  kind        String // "notice" | "blog"
+  publishedAt DateTime?
+  author      User?     @relation("NoticeAuthor", fields: [authorId], references: [id])
+  authorId    String?
+}
+
+enum Role {
+  ADMIN
+  REVIEWER
+  ORGANIZER
+  AUTHOR
+  VISITOR
+}
+
+enum ProjectState {
+  PENDING
+  CHANGES_REQUESTED
+  APPROVED
+  REJECTED
+  PUBLISHED
+}
+
+// NextAuth base models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
