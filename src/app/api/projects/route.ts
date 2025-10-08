@@ -1,26 +1,30 @@
 import { prisma } from "@/lib/prisma";
+import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
-  const data = await req.json();
   try {
+    const data = await req.json();
+    if (!data?.slug || !data?.titleES || !data?.summaryES || !data?.descriptionES) {
+      return NextResponse.json({ error: "Faltan campos obligatorios" }, { status: 400 });
+    }
     await prisma.project.create({
       data: {
         slug: data.slug,
         titleES: data.titleES,
-        titleEN: data.titleEN,
+        titleEN: data.titleEN ?? data.titleES,
         summaryES: data.summaryES,
-        summaryEN: data.summaryEN,
+        summaryEN: data.summaryEN ?? data.summaryES,
         descriptionES: data.descriptionES,
-        descriptionEN: data.descriptionEN,
+        descriptionEN: data.descriptionEN ?? data.descriptionES,
         stack: [],
         tags: [],
         images: [],
-        state: "PENDING"
-      }
+        state: "PENDING",
+      },
     });
-    return new Response(null, { status: 201 });
-  } catch (e) {
-    console.error(e);
-    return new Response("error", { status: 500 });
+    return NextResponse.json({ ok: true }, { status: 201 });
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
