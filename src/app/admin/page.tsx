@@ -1,19 +1,34 @@
+// src/app/admin/page.tsx
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import Link from "next/link";
+import { redirect } from "next/navigation";
 
 type PendingRow = { id: string; slug: string; titleES: string; summaryES: string };
 type CountRow = { state: string; _count: { _all: number } };
 
 export default async function AdminPage() {
+  const session = await auth();
+  if (!session?.user) redirect("/api/auth/signin?callbackUrl=/admin");
+
+  const role = (session.user as any).role;
+  if (role !== "ADMIN") {
+    return (
+      <div className="space-y-4">
+        <h1 className="text-2xl font-bold">Panel de moderación</h1>
+        <p className="text-sm text-neutral-600">No tienes permisos para ver esta página.</p>
+        <Link href="/" className="underline">Volver al inicio</Link>
+      </div>
+    );
+  }
+
   const [pending, counts] = await Promise.all([
     prisma.project.findMany({
-      where: { state: "PENDING" },                // literal string
+      where: { state: "PENDING" },
       orderBy: { createdAt: "desc" },
       select: { id: true, slug: true, titleES: true, summaryES: true },
     }),
-    prisma.project.groupBy({
-      by: ["state"],
-      _count: { _all: true },
-    }),
+    prisma.project.groupBy({ by: ["state"], _count: { _all: true } }),
   ]);
 
   return (
