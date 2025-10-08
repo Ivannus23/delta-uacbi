@@ -1,35 +1,59 @@
 "use client";
+
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function NewProjectPage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
-  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    setErr(null);
     setLoading(true);
-    const form = e.currentTarget;
-    const body = Object.fromEntries(new FormData(form).entries());
-    const res = await fetch("/api/projects", { method: "POST", body: JSON.stringify(body) });
-    if (res.ok) {
-      window.location.href = "/projects";
-    } else {
-      alert("Error al enviar");
-    }
+    const f = e.currentTarget as any;
+
+    const data = {
+      slug: f.slug.value.trim(),
+      titleES: f.titleES.value.trim(),
+      titleEN: f.titleEN.value.trim(),
+      summaryES: f.summaryES.value.trim(),
+      summaryEN: f.summaryEN.value.trim(),
+      descriptionES: f.descriptionES.value.trim(),
+      descriptionEN: f.descriptionEN.value.trim(),
+    };
+
+    const res = await fetch("/api/projects", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
     setLoading(false);
-  };
+
+    if (res.ok) router.push("/projects");
+    else {
+      const j = await res.json().catch(() => ({}));
+      setErr(j?.error || "No se pudo enviar");
+    }
+  }
 
   return (
-    <div className="max-w-2xl">
-      <h1 className="text-2xl font-bold mb-4">Enviar proyecto</h1>
-      <form onSubmit={submit} className="space-y-3">
-        <input name="titleES" placeholder="Título (ES)" className="border p-2 w-full rounded-lg" required />
-        <input name="titleEN" placeholder="Title (EN)" className="border p-2 w-full rounded-lg" required />
-        <textarea name="summaryES" placeholder="Resumen (ES)" className="border p-2 w-full rounded-lg" required />
-        <textarea name="summaryEN" placeholder="Summary (EN)" className="border p-2 w-full rounded-lg" required />
-        <textarea name="descriptionES" placeholder="Descripción (ES)" className="border p-2 w-full rounded-lg" required />
-        <textarea name="descriptionEN" placeholder="Description (EN)" className="border p-2 w-full rounded-lg" required />
-        <input name="slug" placeholder="slug-unico" className="border p-2 w-full rounded-lg" required />
-        <button disabled={loading} className="px-4 py-2 rounded-xl border">{loading ? "Enviando..." : "Enviar"}</button>
+    <div className="max-w-2xl space-y-4">
+      <h1 className="text-2xl font-bold">Enviar proyecto</h1>
+      {err && <p className="text-red-600 text-sm">{err}</p>}
+
+      <form onSubmit={onSubmit} className="space-y-3">
+        <input name="slug" placeholder="slug-ejemplo" className="border rounded p-2 w-full" required />
+        <input name="titleES" placeholder="Título (ES)" className="border rounded p-2 w-full" required />
+        <input name="titleEN" placeholder="Title (EN)" className="border rounded p-2 w-full" />
+        <textarea name="summaryES" placeholder="Resumen (ES)" className="border rounded p-2 w-full" required />
+        <textarea name="summaryEN" placeholder="Summary (EN)" className="border rounded p-2 w-full" />
+        <textarea name="descriptionES" placeholder="Descripción (ES)" className="border rounded p-2 w-full" required />
+        <textarea name="descriptionEN" placeholder="Description (EN)" className="border rounded p-2 w-full" />
+        <button disabled={loading} className="px-4 py-2 rounded border">
+          {loading ? "Enviando..." : "Enviar"}
+        </button>
       </form>
     </div>
   );
