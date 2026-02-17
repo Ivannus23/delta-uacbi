@@ -3,6 +3,8 @@ import { sanityClient } from "@/lib/sanity/client";
 import { jobsQuery } from "@/lib/sanity/queries";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
+export const revalidate = 3600;
+
 
 type Job = {
   _id: string;

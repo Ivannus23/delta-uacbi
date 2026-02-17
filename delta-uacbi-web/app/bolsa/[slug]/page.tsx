@@ -5,6 +5,8 @@ import { jobBySlugQuery } from "@/lib/sanity/queries";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { RichText } from "@/components/RichText";
+export const revalidate = 3600;
+
 
 function formatDate(d?: string) {
   if (!d) return null;

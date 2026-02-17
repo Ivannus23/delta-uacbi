@@ -18,7 +18,6 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}));
     const paths: string[] = Array.isArray(body?.paths) ? body.paths : ["/"];
 
-    // Next 15+
     const { revalidatePath } = await import("next/cache");
     for (const p of paths) revalidatePath(p);
 

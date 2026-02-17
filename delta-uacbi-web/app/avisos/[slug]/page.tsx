@@ -5,6 +5,8 @@ import { noticeBySlugQuery } from "@/lib/sanity/queries";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { RichText } from "@/components/RichText";
+export const revalidate = 3600;
+
 
 export default async function AvisoDetail({
   params,

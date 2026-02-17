@@ -7,6 +7,8 @@ import { Footer } from "@/components/Footer";
 import { RichText } from "@/components/RichText";
 import Image from "next/image";
 import { urlFor } from "@/lib/sanity/image";
+export const revalidate = 3600;
+
 
 function formatDate(d?: string) {
   if (!d) return null;

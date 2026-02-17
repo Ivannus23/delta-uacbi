@@ -3,6 +3,8 @@ import { sanityClient } from "@/lib/sanity/client";
 import { homeQuery } from "@/lib/sanity/queries";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
+export const revalidate = 3600;
+
 
 type Notice = {
   _id: string;
