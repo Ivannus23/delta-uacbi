@@ -37,7 +37,7 @@ export async function GET() {
     "Integrantes",
   ];
 
-  const rows = teams.map((team) =>
+  const rows = teams.map((team: (typeof teams)[number]) =>
     [
       team.name,
       team.unidadAcademica,
