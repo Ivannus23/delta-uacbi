@@ -53,7 +53,7 @@ export async function GET(req: Request) {
     "Notas",
   ];
 
-  const rows = event.registrations.map((registration) =>
+  const rows = event.registrations.map((registration: (typeof event.registrations)[number]) =>
     [
       event.name,
       registration.team.name,
