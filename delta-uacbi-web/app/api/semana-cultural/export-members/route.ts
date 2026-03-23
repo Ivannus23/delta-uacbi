@@ -1,4 +1,4 @@
-import { auth } from "@/auth";
+﻿import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { getActiveEdition } from "@/lib/semana-cultural";
 
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
 
   const edition = await getActiveEdition();
   if (!edition) {
-    return new Response("No hay edici�n activa", { status: 404 });
+    return new Response("No hay edición activa", { status: 404 });
   }
 
   const { searchParams } = new URL(request.url);
