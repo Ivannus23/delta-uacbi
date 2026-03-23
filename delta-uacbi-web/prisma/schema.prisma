@@ -1,0 +1,224 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  ADMIN
+  STAFF
+  JEFE_GRUPO
+}
+
+enum TeamStatus {
+  PENDIENTE
+  APROBADO
+  RECHAZADO
+}
+
+enum EventType {
+  DEPORTIVA
+  CULTURAL
+  RECREATIVA
+  ACADEMICA
+  VIDEOJUEGO
+  OTRA
+}
+
+enum EventStatus {
+  BORRADOR
+  ABIERTA
+  CERRADA
+  FINALIZADA
+}
+
+enum RegistrationStatus {
+  PENDIENTE
+  APROBADA
+  RECHAZADA
+}
+
+enum ScoreCategory {
+  TOPACIO
+  DIAMANTE
+  ESMERALDA
+}
+
+enum ScorePosition {
+  PRIMER_LUGAR
+  SEGUNDO_LUGAR
+  TERCER_LUGAR
+  PARTICIPACION
+  PENALIZACION
+}
+
+enum ScoreMovementType {
+  SUMA
+  RESTA
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  role      UserRole @default(STAFF)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  assignedTeams Team[] @relation("TeamLeader")
+
+  createdScoreLogs ScoreLog[] @relation("ScoreLogCreatedBy")
+}
+
+model CulturalEdition {
+  id         String   @id @default(cuid())
+  name       String
+  year       Int
+  startDate  DateTime
+  endDate    DateTime
+  isActive   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  teams      Team[]
+  events     Event[]
+  scoreRules ScoreRule[]
+  scoreLogs  ScoreLog[]
+
+  @@unique([year])
+}
+
+model Team {
+  id                  String     @id @default(cuid())
+  editionId           String
+  unidadAcademica     String
+  name                String
+  animal              String
+  color               String
+  responsableNombre   String
+  responsableTelefono String?
+  responsableCorreo   String
+  status              TeamStatus @default(PENDIENTE)
+  totalPoints         Int        @default(0)
+  leaderId            String?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  edition       CulturalEdition    @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  members       Member[]
+  registrations EventRegistration[]
+  scoreLogs     ScoreLog[]
+  leader        User? @relation("TeamLeader", fields: [leaderId], references: [id], onDelete: SetNull)
+
+  @@index([editionId])
+  @@unique([editionId, name])
+}
+
+model Member {
+  id                 String   @id @default(cuid())
+  teamId             String
+  fullName           String
+  matricula          String
+  institutionalEmail String
+  gradoGrupo         String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  team          Team                @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  registrations EventRegistration[]
+
+  @@index([teamId])
+  @@unique([teamId, matricula])
+}
+
+model Event {
+  id             String        @id @default(cuid())
+  editionId      String
+  name           String
+  slug           String
+  type           EventType
+  scoreCategory  ScoreCategory
+  place          String
+  eventDate      DateTime
+  startTime      DateTime?
+  endTime        DateTime?
+  description    String?
+  teamCapacity   Int?
+  memberCapacity Int?
+  isVisible      Boolean       @default(true)
+  status         EventStatus   @default(BORRADOR)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  edition       CulturalEdition    @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  registrations EventRegistration[]
+  scoreLogs     ScoreLog[]
+
+  @@index([editionId])
+  @@unique([editionId, slug])
+}
+
+model EventRegistration {
+  id        String             @id @default(cuid())
+  eventId   String
+  teamId    String
+  memberId  String?
+  status    RegistrationStatus @default(PENDIENTE)
+  checkedIn Boolean            @default(false)
+  notes     String?
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  event  Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  team   Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  member Member? @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@index([teamId])
+  @@index([memberId])
+}
+
+model ScoreRule {
+  id        String         @id @default(cuid())
+  editionId String
+  category  ScoreCategory
+  position  ScorePosition
+  points    Int
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  edition CulturalEdition @relation(fields: [editionId], references: [id], onDelete: Cascade)
+
+  @@unique([editionId, category, position])
+}
+
+model ScoreLog {
+  id           String            @id @default(cuid())
+  editionId    String
+  eventId      String?
+  teamId       String
+  movementType ScoreMovementType
+  points       Int
+  reason       String
+  createdById  String?
+  createdAt    DateTime          @default(now())
+
+  edition   CulturalEdition @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  event     Event?          @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  team      Team            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdBy User?           @relation("ScoreLogCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([editionId])
+  @@index([teamId])
+  @@index([eventId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  action     String
+  entityType String
+  entityId   String?
+  detail     String?
+  createdAt  DateTime @default(now())
+}

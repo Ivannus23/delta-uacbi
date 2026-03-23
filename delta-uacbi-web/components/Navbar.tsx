@@ -10,6 +10,7 @@ const navItems = [
   { href: "/proyectos", label: "Proyectos" },
   { href: "/concursos", label: "Concursos" },
   { href: "/bolsa", label: "Bolsa" },
+  { href: "/semana-cultural", label: "Semana Cultural" },
 ];
 
 function cx(...classes: Array<string | false | undefined | null>) {
