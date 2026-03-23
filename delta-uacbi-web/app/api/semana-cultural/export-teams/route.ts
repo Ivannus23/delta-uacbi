@@ -1,3 +1,4 @@
+import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { getActiveEdition } from "@/lib/semana-cultural";
 
@@ -10,6 +11,19 @@ function escapeCsv(value: string | number | null | undefined) {
 }
 
 export async function GET() {
+  const session = await auth();
+  const role =
+    session?.user &&
+    typeof session.user === "object" &&
+    "role" in session.user &&
+    typeof session.user.role === "string"
+      ? session.user.role
+      : null;
+
+  if (role !== "ADMIN" && role !== "STAFF") {
+    return new Response("No autorizado", { status: 403 });
+  }
+
   const edition = await getActiveEdition();
 
   if (!edition) {

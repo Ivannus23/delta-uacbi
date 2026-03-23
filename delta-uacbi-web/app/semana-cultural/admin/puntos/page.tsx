@@ -1,6 +1,7 @@
-import { Navbar } from "@/components/Navbar";
+﻿import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { HeaderSemana } from "@/components/semana-cultural/HeaderSemana";
+import { SuggestionSelect } from "@/components/semana-cultural/SuggestionSelect";
 import { requireStaff } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getActiveEdition } from "@/lib/semana-cultural";
@@ -13,8 +14,8 @@ const positions = [
   { value: ScorePosition.PRIMER_LUGAR, label: "1er lugar" },
   { value: ScorePosition.SEGUNDO_LUGAR, label: "2do lugar" },
   { value: ScorePosition.TERCER_LUGAR, label: "3er lugar" },
-  { value: ScorePosition.PARTICIPACION, label: "Participación" },
-  { value: ScorePosition.PENALIZACION, label: "Penalización" },
+  { value: ScorePosition.PARTICIPACION, label: "Participacion" },
+  { value: ScorePosition.PENALIZACION, label: "Penalizacion" },
 ];
 
 export default async function AdminPuntosPage({
@@ -89,34 +90,27 @@ export default async function AdminPuntosPage({
             <form method="GET" className="mt-6 grid gap-4 rounded-2xl border border-white/10 bg-white/5 p-4">
               <div>
                 <label className="mb-2 block text-sm text-muted-foreground">Filtrar por actividad</label>
-                <select
+                <SuggestionSelect
                   name="eventId"
                   defaultValue={selectedEventId}
+                  options={events.map((event) => ({
+                    value: event.id,
+                    label: `${event.name} · ${event.scoreCategory}`,
+                  }))}
+                  placeholder="Selecciona una actividad"
                   className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 outline-none"
-                >
-                  <option value="">Selecciona una actividad</option>
-                  {events.map((event) => (
-                    <option key={event.id} value={event.id}>
-                      {event.name} · {event.scoreCategory}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
 
               <div>
-                <label className="mb-2 block text-sm text-muted-foreground">Unidad académica</label>
-                <select
+                <label className="mb-2 block text-sm text-muted-foreground">Unidad academica</label>
+                <SuggestionSelect
                   name="unidad"
                   defaultValue={selectedUnidad}
+                  options={uniqueUnits.map((unit) => ({ value: unit, label: unit }))}
+                  placeholder="Todas"
                   className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 outline-none"
-                >
-                  <option value="">Todas</option>
-                  {uniqueUnits.map((unit) => (
-                    <option key={unit} value={unit}>
-                      {unit}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
 
               <button
@@ -130,53 +124,46 @@ export default async function AdminPuntosPage({
             <form action={assignScore} className="mt-6 grid gap-4">
               <div>
                 <label className="mb-2 block text-sm text-muted-foreground">Actividad</label>
-                <select
+                <SuggestionSelect
                   name="eventId"
                   required
                   defaultValue={selectedEventId}
+                  options={events.map((event) => ({
+                    value: event.id,
+                    label: `${event.name} · ${event.scoreCategory}`,
+                  }))}
+                  placeholder="Selecciona una actividad"
                   className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
-                >
-                  <option value="">Selecciona una actividad</option>
-                  {events.map((event) => (
-                    <option key={event.id} value={event.id}>
-                      {event.name} · {event.scoreCategory}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
 
               <div>
                 <label className="mb-2 block text-sm text-muted-foreground">Equipo inscrito</label>
-                <select
+                <SuggestionSelect
                   name="teamId"
                   required
+                  options={registeredTeams.map((team) => ({
+                    value: team.id,
+                    label: `${team.name} · ${team.unidadAcademica}`,
+                  }))}
+                  placeholder={
+                    selectedEvent
+                      ? "Selecciona un equipo inscrito"
+                      : "Primero selecciona una actividad en el filtro"
+                  }
                   className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
-                >
-                  <option value="">
-                    {selectedEvent ? "Selecciona un equipo inscrito" : "Primero selecciona una actividad en el filtro"}
-                  </option>
-                  {registeredTeams.map((team) => (
-                    <option key={team.id} value={team.id}>
-                      {team.name} · {team.unidadAcademica}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
 
               <div>
                 <label className="mb-2 block text-sm text-muted-foreground">Resultado</label>
-                <select
+                <SuggestionSelect
                   name="position"
                   required
+                  options={positions}
+                  placeholder="Selecciona resultado"
                   className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
-                >
-                  <option value="">Selecciona resultado</option>
-                  {positions.map((position) => (
-                    <option key={position.value} value={position.value}>
-                      {position.label}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
 
               <div>
@@ -194,7 +181,7 @@ export default async function AdminPuntosPage({
                 type="submit"
                 className="btn-sheen rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm hover:bg-white/10"
               >
-                Guardar puntuación
+                Guardar puntuacion
               </button>
             </form>
 
@@ -229,7 +216,7 @@ export default async function AdminPuntosPage({
           <section className="card-next rounded-3xl p-6">
             <h2 className="text-2xl font-semibold">Historial reciente</h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              Últimos movimientos registrados en la tabla de puntos.
+              Ultimos movimientos registrados en la tabla de puntos.
             </p>
 
             <div className="mt-6 overflow-hidden rounded-2xl border border-white/10">
@@ -240,7 +227,7 @@ export default async function AdminPuntosPage({
                     <th className="px-4 py-3">Actividad</th>
                     <th className="px-4 py-3">Puntos</th>
                     <th className="px-4 py-3">Motivo</th>
-                    <th className="px-4 py-3">Acción</th>
+                    <th className="px-4 py-3">Accion</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -271,7 +258,7 @@ export default async function AdminPuntosPage({
                   ) : (
                     <tr>
                       <td colSpan={5} className="px-4 py-6 text-muted-foreground">
-                        Aún no hay movimientos de puntuación.
+                        Aun no hay movimientos de puntuacion.
                       </td>
                     </tr>
                   )}

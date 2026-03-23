@@ -1,5 +1,4 @@
 import { db } from "@/lib/db";
-import { UserRole } from "@prisma/client";
 import { getServerSession, type NextAuthOptions } from "next-auth";
 import NextAuth from "next-auth/next";
 import GoogleProvider from "next-auth/providers/google";
@@ -35,15 +34,7 @@ export const authOptions: NextAuthOptions = {
         where: { email },
       });
 
-      if (!existingUser) {
-        await db.user.create({
-          data: {
-            name: user.name || email,
-            email,
-            role: UserRole.JEFE_GRUPO,
-          },
-        });
-      } else if (user.name && existingUser.name !== user.name) {
+      if (existingUser && user.name && existingUser.name !== user.name) {
         await db.user.update({
           where: { email },
           data: { name: user.name },
@@ -73,8 +64,13 @@ export const authOptions: NextAuthOptions = {
 
     async session({ session, token }) {
       if (session.user) {
-        (session.user as any).id = token.id;
-        (session.user as any).role = token.role;
+        const sessionUser = session.user as typeof session.user & {
+          id?: string;
+          role?: string;
+        };
+
+        sessionUser.id = typeof token.id === "string" ? token.id : undefined;
+        sessionUser.role = typeof token.role === "string" ? token.role : undefined;
         session.user.name = (token.name as string) || session.user.name;
         session.user.email = (token.email as string) || session.user.email;
       }

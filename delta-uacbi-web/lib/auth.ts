@@ -1,6 +1,15 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 
+function getRole(user: unknown) {
+  return typeof user === "object" &&
+    user !== null &&
+    "role" in user &&
+    typeof user.role === "string"
+    ? user.role
+    : null;
+}
+
 export async function requireUser() {
   const session = await auth();
   if (!session?.user) {
@@ -10,22 +19,28 @@ export async function requireUser() {
 }
 
 export async function requireStaff() {
-  const session = await requireUser();
-  const role = (session.user as any).role;
+  const session = await auth();
+  if (!session?.user) {
+    redirect("/semana-cultural/staff");
+  }
+  const role = getRole(session.user);
 
   if (role !== "ADMIN" && role !== "STAFF") {
-    redirect("/semana-cultural");
+    redirect("/semana-cultural/staff");
   }
 
   return session;
 }
 
 export async function requireAdmin() {
-  const session = await requireUser();
-  const role = (session.user as any).role;
+  const session = await auth();
+  if (!session?.user) {
+    redirect("/semana-cultural/staff");
+  }
+  const role = getRole(session.user);
 
   if (role !== "ADMIN") {
-    redirect("/semana-cultural");
+    redirect("/semana-cultural/staff");
   }
 
   return session;

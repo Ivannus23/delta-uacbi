@@ -1,13 +1,80 @@
 import { auth } from "@/auth";
 import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
+import { LoginButton } from "@/components/auth/LoginButton";
 import { HeaderSemana } from "@/components/semana-cultural/HeaderSemana";
-import { RegistroResponsableEmailField } from "@/components/semana-cultural/RegistroResponsableEmailField";
+import { SuggestionSelect } from "@/components/semana-cultural/SuggestionSelect";
+import { db } from "@/lib/db";
+import { getActiveEdition } from "@/lib/semana-cultural";
+import { redirect } from "next/navigation";
 import { createTeam } from "./actions";
+
+const unidadesAcademicas = ["UAE", "UACBI"];
+
+const animales = [
+  "Jaguar",
+  "Ocelote",
+  "Capibara",
+  "Perezoso de tres dedos",
+  "Mono capuchino",
+  "Kinkaju",
+  "Coati",
+  "Tapir amazonico",
+  "Delfin rosado del Amazonas",
+  "Guacamaya roja",
+  "Tucan toco",
+  "Quetzal",
+  "Gallito de las rocas",
+  "Colibri",
+  "Loro amazonico",
+  "Aguila harpia",
+  "Flamenco",
+  "Mariposa morpho azul",
+  "Mariposa monarca",
+  "Escarabajo hercules",
+  "Escarabajo rinoceronte",
+  "Hormiga bala",
+  "Mantis religiosa",
+  "Tarantula",
+  "Rana dardo venenosa",
+  "Rana de ojos rojos",
+  "Anaconda verde",
+  "Boa constrictora",
+  "Iguana verde",
+  "Basilisco",
+  "Camaleon",
+  "Tortuga charapa",
+  "Caiman",
+  "Okapi",
+  "Cacomixtle",
+  "Guacamayo azul",
+];
 
 export default async function RegistroPage() {
   const session = await auth();
   const user = session?.user;
+  const edition = await getActiveEdition();
+
+  const userId =
+    user && typeof user === "object" && "id" in user && typeof user.id === "string"
+      ? user.id
+      : null;
+
+  if (edition && userId) {
+    const existingTeam = await db.team.findFirst({
+      where: {
+        editionId: edition.id,
+        leaderId: userId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (existingTeam) {
+      redirect(`/semana-cultural/equipos/${existingTeam.id}`);
+    }
+  }
 
   return (
     <>
@@ -17,95 +84,124 @@ export default async function RegistroPage() {
 
         <h1 className="text-3xl font-semibold">Registro de equipos</h1>
         <p className="mt-2 text-muted-foreground">
-          Completa los datos del equipo y del responsable para registrarlo en la Semana Cultural.
+          El jefe de grupo primero inicia sesión con Google y después completa los datos
+          adicionales del equipo.
         </p>
 
         {!user ? (
-          <div className="mt-6 rounded-3xl border border-amber-400/20 bg-amber-400/10 p-5">
-            <p className="text-sm text-amber-50">
-              Si el jefe de grupo inicia sesion con Google antes de registrar el equipo, el equipo
-              quedara vinculado automaticamente a su cuenta.
+          <section className="card-next mt-8 max-w-3xl rounded-3xl p-6 sm:p-8">
+            <div className="inline-flex rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100">
+              Paso 1 de 2
+            </div>
+            <h2 className="mt-4 text-2xl font-semibold">Inicia sesión con tu cuenta institucional</h2>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-muted-foreground">
+              Usaremos tu cuenta de Google para identificar al jefe de grupo, vincular el equipo a
+              su perfil y después pedir únicamente los datos adicionales del registro.
             </p>
-          </div>
-        ) : null}
 
-        <form action={createTeam} className="mt-8 card-next rounded-3xl p-6">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-2 block text-sm text-muted-foreground">Unidad academica</label>
-              <input
-                name="unidadAcademica"
-                className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
-                placeholder="UACBI / UAE"
-                required
+            <div className="mt-6">
+              <LoginButton
+                callbackUrl="/semana-cultural/registro"
+                className="btn-sheen inline-flex rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm hover:bg-white/10"
               />
             </div>
-
-            <div>
-              <label className="mb-2 block text-sm text-muted-foreground">Nombre del equipo</label>
-              <input
-                name="name"
-                className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
-                placeholder="Ej. Titanes"
-                required
-              />
+          </section>
+        ) : (
+          <form action={createTeam} className="mt-8 card-next rounded-3xl p-6">
+            <div className="mb-6 rounded-2xl border border-emerald-300/20 bg-emerald-300/10 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100">
+                Paso 2 de 2
+              </p>
+              <p className="mt-2 text-sm text-emerald-50">
+                Vas a registrar como responsable a <strong>{user.name}</strong> con el correo{" "}
+                <strong>{user.email}</strong>.
+              </p>
             </div>
 
-            <div>
-              <label className="mb-2 block text-sm text-muted-foreground">Animal</label>
-              <input
-                name="animal"
-                className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
-                placeholder="Ej. Jaguar"
-                required
-              />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-2 block text-sm text-muted-foreground">Unidad academica</label>
+                <SuggestionSelect
+                  name="unidadAcademica"
+                  options={unidadesAcademicas.map((unidad) => ({ value: unidad, label: unidad }))}
+                  placeholder="Selecciona una unidad academica"
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm text-muted-foreground">Nombre del equipo</label>
+                <input
+                  name="name"
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
+                  placeholder="Ej. Titanes"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm text-muted-foreground">Animal</label>
+                <SuggestionSelect
+                  name="animal"
+                  options={animales.map((animal) => ({ value: animal, label: animal }))}
+                  placeholder="Escribe o selecciona un animal"
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm text-muted-foreground">Color</label>
+                <input
+                  name="color"
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
+                  placeholder="Ej. Azul"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm text-muted-foreground">Responsable</label>
+                <input
+                  name="responsableNombre"
+                  defaultValue={user.name ?? ""}
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
+                  placeholder="Nombre del jefe de grupo"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm text-muted-foreground">Telefono</label>
+                <input
+                  name="responsableTelefono"
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
+                  placeholder="Opcional"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="mb-2 block text-sm text-muted-foreground">Correo del responsable</label>
+                <input
+                  value={user.email ?? ""}
+                  readOnly
+                  disabled
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-muted-foreground outline-none"
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="mb-2 block text-sm text-muted-foreground">Color</label>
-              <input
-                name="color"
-                className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
-                placeholder="Ej. Azul"
-                required
-              />
+            <div className="mt-6">
+              <button
+                type="submit"
+                className="btn-sheen rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm hover:bg-white/10"
+              >
+                Registrar equipo
+              </button>
             </div>
-
-            <div>
-              <label className="mb-2 block text-sm text-muted-foreground">Responsable</label>
-              <input
-                name="responsableNombre"
-                defaultValue={user?.name ?? ""}
-                className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
-                placeholder="Nombre del jefe de grupo"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm text-muted-foreground">Telefono</label>
-              <input
-                name="responsableTelefono"
-                className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
-                placeholder="Opcional"
-              />
-            </div>
-
-            <RegistroResponsableEmailField
-              defaultValue={user?.email ?? ""}
-              isAuthenticated={Boolean(user)}
-            />
-          </div>
-
-          <div className="mt-6">
-            <button
-              type="submit"
-              className="btn-sheen rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm hover:bg-white/10"
-            >
-              Registrar equipo
-            </button>
-          </div>
-        </form>
+          </form>
+        )}
       </main>
       <Footer />
     </>

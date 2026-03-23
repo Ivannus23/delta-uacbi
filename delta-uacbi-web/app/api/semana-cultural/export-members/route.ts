@@ -10,7 +10,7 @@ function escapeCsv(value: string | number | null | undefined) {
   return str;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const session = await auth();
   const role =
     session?.user &&
@@ -25,56 +25,67 @@ export async function GET() {
   }
 
   const edition = await getActiveEdition();
-
   if (!edition) {
-    return new Response("No hay ediciÃ³n activa", { status: 404 });
+    return new Response("No hay edición activa", { status: 404 });
   }
 
-  const teams = await db.team.findMany({
-    where: { editionId: edition.id },
-    include: {
-      members: true,
+  const { searchParams } = new URL(request.url);
+  const teamId = searchParams.get("teamId")?.trim();
+
+  if (!teamId) {
+    return new Response("Falta teamId", { status: 400 });
+  }
+
+  const team = await db.team.findFirst({
+    where: {
+      id: teamId,
+      editionId: edition.id,
     },
-    orderBy: { name: "asc" },
+    include: {
+      members: {
+        orderBy: { fullName: "asc" },
+      },
+    },
   });
+
+  if (!team) {
+    return new Response("Equipo no encontrado", { status: 404 });
+  }
 
   const headers = [
     "Equipo",
     "UnidadAcademica",
-    "Animal",
-    "Color",
     "Responsable",
     "CorreoResponsable",
-    "TelefonoResponsable",
-    "Estado",
-    "Puntos",
-    "Integrantes",
+    "Integrante",
+    "Matricula",
+    "CorreoInstitucional",
+    "GradoGrupo",
   ];
 
-  const rows = teams.map((team) =>
+  const rows = team.members.map((member) =>
     [
       team.name,
       team.unidadAcademica,
-      team.animal,
-      team.color,
       team.responsableNombre,
       team.responsableCorreo,
-      team.responsableTelefono ?? "",
-      team.status,
-      team.totalPoints,
-      team.members.length,
+      member.fullName,
+      member.matricula,
+      member.institutionalEmail,
+      member.gradoGrupo,
     ]
       .map(escapeCsv)
       .join(",")
   );
 
   const csv = [headers.join(","), ...rows].join("\n");
+  const safeTeamName = team.name.toLowerCase().replace(/\s+/g, "-");
 
   return new Response(csv, {
     status: 200,
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="equipos-semana-cultural-${edition.year}.csv"`,
+      "Content-Disposition": `attachment; filename="integrantes-${safeTeamName}-${edition.year}.csv"`,
     },
   });
 }

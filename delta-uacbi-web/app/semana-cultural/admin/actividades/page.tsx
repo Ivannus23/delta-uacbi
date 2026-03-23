@@ -1,6 +1,7 @@
-import { Navbar } from "@/components/Navbar";
+﻿import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { HeaderSemana } from "@/components/semana-cultural/HeaderSemana";
+import { SuggestionSelect } from "@/components/semana-cultural/SuggestionSelect";
 import { requireStaff } from "@/lib/auth";
 import { getActiveEditionWithEvents, getAvailableTeams } from "@/lib/events";
 import { getAvailableMembers } from "@/lib/members";
@@ -20,7 +21,7 @@ const eventTypes = [
   { value: EventType.DEPORTIVA, label: "Deportiva" },
   { value: EventType.CULTURAL, label: "Cultural" },
   { value: EventType.RECREATIVA, label: "Recreativa" },
-  { value: EventType.ACADEMICA, label: "Académica" },
+  { value: EventType.ACADEMICA, label: "AcadÃ©mica" },
   { value: EventType.VIDEOJUEGO, label: "Videojuego" },
   { value: EventType.OTRA, label: "Otra" },
 ];
@@ -87,7 +88,7 @@ export default async function AdminActividadesPage() {
                   name="name"
                   required
                   className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
-                  placeholder="Ej. Torneo relámpago de ajedrez"
+                  placeholder="Ej. Torneo relÃ¡mpago de ajedrez"
                 />
               </div>
 
@@ -104,34 +105,24 @@ export default async function AdminActividadesPage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-2 block text-sm text-muted-foreground">Tipo</label>
-                  <select
+                  <SuggestionSelect
                     name="type"
                     required
+                    options={eventTypes}
+                    placeholder="Selecciona tipo"
                     className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
-                  >
-                    <option value="">Selecciona tipo</option>
-                    {eventTypes.map((item) => (
-                      <option key={item.value} value={item.value}>
-                        {item.label}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm text-muted-foreground">Categoría de puntos</label>
-                  <select
+                  <label className="mb-2 block text-sm text-muted-foreground">CategorÃ­a de puntos</label>
+                  <SuggestionSelect
                     name="scoreCategory"
                     required
+                    options={scoreCategories}
+                    placeholder="Selecciona categoria"
                     className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
-                  >
-                    <option value="">Selecciona categoría</option>
-                    {scoreCategories.map((item) => (
-                      <option key={item.value} value={item.value}>
-                        {item.label}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
               </div>
 
@@ -180,12 +171,12 @@ export default async function AdminActividadesPage() {
               </div>
 
               <div>
-                <label className="mb-2 block text-sm text-muted-foreground">Descripción</label>
+                <label className="mb-2 block text-sm text-muted-foreground">DescripciÃ³n</label>
                 <textarea
                   name="description"
                   rows={3}
                   className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
-                  placeholder="Descripción breve"
+                  placeholder="DescripciÃ³n breve"
                 />
               </div>
 
@@ -208,34 +199,30 @@ export default async function AdminActividadesPage() {
               <form action={registerTeamToEvent} className="mt-6 grid gap-4">
                 <div>
                   <label className="mb-2 block text-sm text-muted-foreground">Actividad</label>
-                  <select
+                  <SuggestionSelect
                     name="eventId"
                     required
+                    options={events.map((event) => ({
+                      value: event.id,
+                      label: `${event.name} · ${event.scoreCategory}`,
+                    }))}
+                    placeholder="Selecciona actividad"
                     className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
-                  >
-                    <option value="">Selecciona actividad</option>
-                    {events.map((event) => (
-                      <option key={event.id} value={event.id}>
-                        {event.name} · {event.scoreCategory}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
 
                 <div>
                   <label className="mb-2 block text-sm text-muted-foreground">Equipo</label>
-                  <select
+                  <SuggestionSelect
                     name="teamId"
                     required
+                    options={teams.map((team) => ({
+                      value: team.id,
+                      label: `${team.name} · ${team.unidadAcademica}`,
+                    }))}
+                    placeholder="Selecciona equipo"
                     className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
-                  >
-                    <option value="">Selecciona equipo</option>
-                    {teams.map((team) => (
-                      <option key={team.id} value={team.id}>
-                        {team.name} · {team.unidadAcademica}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
 
                 <div>
@@ -260,40 +247,36 @@ export default async function AdminActividadesPage() {
             <section className="card-next rounded-3xl p-6">
               <h2 className="text-2xl font-semibold">Inscribir integrante a actividad</h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                Úsalo para box, videojuegos u otras actividades individuales.
+                Ãšsalo para box, videojuegos u otras actividades individuales.
               </p>
 
               <form action={registerMemberToEvent} className="mt-6 grid gap-4">
                 <div>
                   <label className="mb-2 block text-sm text-muted-foreground">Actividad</label>
-                  <select
+                  <SuggestionSelect
                     name="eventId"
                     required
+                    options={events.map((event) => ({
+                      value: event.id,
+                      label: `${event.name} · ${event.scoreCategory}`,
+                    }))}
+                    placeholder="Selecciona actividad"
                     className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
-                  >
-                    <option value="">Selecciona actividad</option>
-                    {events.map((event) => (
-                      <option key={event.id} value={event.id}>
-                        {event.name} · {event.scoreCategory}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
 
                 <div>
                   <label className="mb-2 block text-sm text-muted-foreground">Integrante</label>
-                  <select
+                  <SuggestionSelect
                     name="memberId"
                     required
+                    options={members.map((member) => ({
+                      value: member.id,
+                      label: `${member.fullName} · ${member.team.name}`,
+                    }))}
+                    placeholder="Selecciona integrante"
                     className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
-                  >
-                    <option value="">Selecciona integrante</option>
-                    {members.map((member) => (
-                      <option key={member.id} value={member.id}>
-                        {member.fullName} · {member.team.name}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
 
                 <div>
@@ -326,7 +309,7 @@ export default async function AdminActividadesPage() {
                         <div>
                           <h3 className="text-lg font-semibold">{event.name}</h3>
                           <p className="mt-1 text-sm text-muted-foreground">
-                            {formatDate(event.eventDate)} · {event.place}
+                            {formatDate(event.eventDate)} Â· {event.place}
                           </p>
                         </div>
 
@@ -400,7 +383,7 @@ export default async function AdminActividadesPage() {
                                 <tr key={registration.id} className="border-t border-white/10">
                                   <td className="px-4 py-3 font-medium">
                                     {registration.member
-                                      ? `${registration.member.fullName} · ${registration.team.name}`
+                                      ? `${registration.member.fullName} Â· ${registration.team.name}`
                                       : registration.team.name}
                                   </td>
                                   <td className="px-4 py-3 text-muted-foreground">
@@ -412,7 +395,7 @@ export default async function AdminActividadesPage() {
                                     </span>
                                   </td>
                                   <td className="px-4 py-3 text-muted-foreground">
-                                    {registration.notes || "—"}
+                                    {registration.notes || "â€”"}
                                   </td>
                                   <td className="px-4 py-3">
                                     <div className="flex flex-wrap gap-2">
@@ -454,14 +437,14 @@ export default async function AdminActividadesPage() {
                         </div>
                       ) : (
                         <p className="mt-4 text-sm text-muted-foreground">
-                          Aún no hay equipos o integrantes inscritos en esta actividad.
+                          AÃºn no hay equipos o integrantes inscritos en esta actividad.
                         </p>
                       )}
                     </div>
                   ))
                 ) : (
                   <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-muted-foreground">
-                    Aún no hay actividades registradas.
+                    AÃºn no hay actividades registradas.
                   </div>
                 )}
               </div>
@@ -473,3 +456,5 @@ export default async function AdminActividadesPage() {
     </>
   );
 }
+
+

@@ -9,7 +9,7 @@ export default function SemanaCulturalPage() {
       <Navbar />
 
       <main className="container py-12">
-        <HeaderSemana />
+        <HeaderSemana variant="hero" />
 
         <section className="card-next rounded-3xl p-8">
           <h2 className="text-3xl font-semibold tracking-tight">Bienvenidos al modulo oficial</h2>
@@ -56,7 +56,7 @@ export default function SemanaCulturalPage() {
             </Link>
 
             <Link
-              href="/semana-cultural/admin/dashboard"
+              href="/semana-cultural/staff"
               className="btn-sheen rounded-full border border-white/10 px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
             >
               Panel staff

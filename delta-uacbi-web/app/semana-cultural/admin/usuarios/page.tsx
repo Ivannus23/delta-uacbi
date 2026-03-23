@@ -1,6 +1,7 @@
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { HeaderSemana } from "@/components/semana-cultural/HeaderSemana";
+import { SuggestionSelect } from "@/components/semana-cultural/SuggestionSelect";
 import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { createStaffUser, updateUserRole } from "./actions";
@@ -58,17 +59,14 @@ export default async function AdminUsuariosPage() {
 
               <div>
                 <label className="mb-2 block text-sm text-muted-foreground">Rol</label>
-                <select
+                <SuggestionSelect
                   name="role"
                   required
+                  options={roles}
+                  defaultValue={UserRole.STAFF}
+                  placeholder="Selecciona un rol"
                   className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
-                >
-                  {roles.map((role) => (
-                    <option key={role.value} value={role.value}>
-                      {role.label}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
 
               <button

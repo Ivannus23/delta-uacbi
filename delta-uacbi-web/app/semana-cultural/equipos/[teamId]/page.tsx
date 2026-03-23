@@ -1,4 +1,4 @@
-import { auth } from "@/auth";
+﻿import { auth } from "@/auth";
 import { notFound, redirect } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
@@ -35,10 +35,17 @@ export default async function TeamDetailPage({
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const role = (session.user as any).role;
-  const userId = (session.user as any).id;
+  const role =
+    typeof session.user === "object" && session.user !== null && "role" in session.user
+      ? session.user.role
+      : null;
+  const userId =
+    typeof session.user === "object" && session.user !== null && "id" in session.user
+      ? session.user.id
+      : null;
+  const canManageTeam = role === "ADMIN" || role === "STAFF";
 
-  if (role !== "ADMIN" && role !== "STAFF" && team.leaderId !== userId) {
+  if (!canManageTeam && team.leaderId !== userId) {
     redirect("/semana-cultural");
   }
 
@@ -50,7 +57,18 @@ export default async function TeamDetailPage({
 
         <div className="grid gap-6 lg:grid-cols-[1.05fr_.95fr]">
           <section className="card-next rounded-3xl p-6">
-            <h2 className="text-2xl font-semibold">Equipo registrado</h2>
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <h2 className="text-2xl font-semibold">Equipo registrado</h2>
+
+              {canManageTeam ? (
+                <a
+                  href={`/api/semana-cultural/export-members?teamId=${team.id}`}
+                  className="rounded-full border border-white/10 px-4 py-2 text-sm text-muted-foreground hover:bg-white/10 hover:text-foreground"
+                >
+                  Exportar integrantes
+                </a>
+              ) : null}
+            </div>
 
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <div>
@@ -59,7 +77,7 @@ export default async function TeamDetailPage({
               </div>
 
               <div>
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">Unidad académica</p>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Unidad academica</p>
                 <p className="mt-1 font-medium">{team.unidadAcademica}</p>
               </div>
 
@@ -80,7 +98,7 @@ export default async function TeamDetailPage({
 
               <div>
                 <p className="text-xs uppercase tracking-wide text-muted-foreground">Correo</p>
-                <p className="mt-1 font-medium break-all">{team.responsableCorreo}</p>
+                <p className="mt-1 break-all font-medium">{team.responsableCorreo}</p>
               </div>
             </div>
 
