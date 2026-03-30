@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { getActiveEdition } from "@/lib/semana-cultural";
 import { UserRole } from "@prisma/client";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 const allowedUnidadesAcademicas = new Set(["UAE", "UACBI"]);
@@ -61,14 +62,13 @@ export async function createTeam(formData: FormData) {
   }
 
   const unidadAcademica = String(formData.get("unidadAcademica") || "").trim();
-  const name = String(formData.get("name") || "").trim();
   const animal = String(formData.get("animal") || "").trim();
   const color = String(formData.get("color") || "").trim();
   const responsableNombre = String(formData.get("responsableNombre") || "").trim();
   const responsableTelefono = String(formData.get("responsableTelefono") || "").trim();
   const responsableCorreo = sessionUser.email.toLowerCase();
 
-  if (!unidadAcademica || !name || !animal || !color || !responsableNombre) {
+  if (!unidadAcademica || !animal || !color || !responsableNombre) {
     throw new Error("Faltan campos obligatorios.");
   }
 
@@ -79,6 +79,8 @@ export async function createTeam(formData: FormData) {
   if (!allowedAnimales.has(animal)) {
     throw new Error("El animal seleccionado no es valido.");
   }
+
+  const expectedTeamName = animal;
 
   const sessionUserId =
     typeof sessionUser === "object" &&
@@ -127,11 +129,25 @@ export async function createTeam(formData: FormData) {
     redirect(`/semana-cultural/equipos/${existingTeam.id}`);
   }
 
+  const duplicateAnimalTeam = await db.team.findFirst({
+    where: {
+      editionId: edition.id,
+      OR: [{ name: expectedTeamName }, { animal }],
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (duplicateAnimalTeam) {
+    throw new Error("Ya existe un equipo registrado con ese nombre o animal en esta edicion.");
+  }
+
   const team = await db.team.create({
     data: {
       editionId: edition.id,
       unidadAcademica,
-      name,
+      name: expectedTeamName,
       animal,
       color,
       responsableNombre,
@@ -140,6 +156,12 @@ export async function createTeam(formData: FormData) {
       leaderId,
     },
   });
+
+  revalidatePath("/semana-cultural/registro");
+  revalidatePath("/semana-cultural/admin/equipos");
+  revalidatePath("/semana-cultural/ranking");
+  revalidatePath("/semana-cultural/resultados");
+  revalidatePath("/semana-cultural/admin/dashboard");
 
   redirect(`/semana-cultural/equipos/${team.id}`);
 }

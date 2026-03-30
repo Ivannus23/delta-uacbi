@@ -93,7 +93,7 @@ model Team {
   id                  String     @id @default(cuid())
   editionId           String
   unidadAcademica     String
-  name                String
+  name                String     @default("")
   animal              String
   color               String
   responsableNombre   String

@@ -54,6 +54,18 @@ export default async function RegistroPage() {
   const session = await auth();
   const user = session?.user;
   const edition = await getActiveEdition();
+  const usedAnimals = edition
+    ? await db.team.findMany({
+        where: {
+          editionId: edition.id,
+        },
+        select: {
+          animal: true,
+        },
+      })
+    : [];
+  const usedAnimalSet = new Set(usedAnimals.map((team) => team.animal));
+  const availableAnimales = animales.filter((animal) => !usedAnimalSet.has(animal));
 
   const userId =
     user && typeof user === "object" && "id" in user && typeof user.id === "string"
@@ -131,23 +143,22 @@ export default async function RegistroPage() {
               </div>
 
               <div>
-                <label className="mb-2 block text-sm text-muted-foreground">Nombre del equipo</label>
-                <input
-                  name="name"
-                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
-                  placeholder="Ej. Titanes"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm text-muted-foreground">Animal</label>
+                <label className="mb-2 block text-sm text-muted-foreground">Animal del equipo</label>
+                <p className="mb-2 text-xs text-muted-foreground">
+                  El nombre del equipo se asignara automaticamente con el animal que elijas.
+                </p>
+                {availableAnimales.length ? null : (
+                  <p className="mb-2 text-xs text-amber-200">
+                    Ya no hay animales disponibles para registrar en esta edicion.
+                  </p>
+                )}
                 <SuggestionSelect
                   name="animal"
-                  options={animales.map((animal) => ({ value: animal, label: animal }))}
+                  options={availableAnimales.map((animal) => ({ value: animal, label: animal }))}
                   placeholder="Escribe o selecciona un animal"
                   className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
                   required
+                  disabled={!availableAnimales.length}
                 />
               </div>
 
@@ -196,6 +207,7 @@ export default async function RegistroPage() {
               <button
                 type="submit"
                 className="btn-sheen rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm hover:bg-white/10"
+                disabled={!availableAnimales.length}
               >
                 Registrar equipo
               </button>
