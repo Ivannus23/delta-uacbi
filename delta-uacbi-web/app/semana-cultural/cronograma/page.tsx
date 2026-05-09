@@ -29,6 +29,8 @@ const categoryStyles: Record<string, string> = {
   DIAMANTE: "border-sky-200/60 bg-sky-100 text-sky-950",
   ESMERALDA: "border-emerald-200/60 bg-emerald-100 text-emerald-950",
 };
+const nonScoredStyle = "border-slate-200/70 bg-slate-100 text-slate-900";
+const fallbackScoredStyle = "border-white/15 bg-white/10 text-white";
 
 const accentStyles = [
   "bg-blue-700 text-white",
@@ -45,6 +47,17 @@ function getEventStart(event: EventItem) {
 function getEventEnd(event: EventItem) {
   const start = getEventStart(event);
   return event.endTime ?? new Date(start.getTime() + DEFAULT_EVENT_DURATION_HOURS * 60 * 60 * 1000);
+}
+
+function getEventBadgeLabel(event: EventItem) {
+  if (!event.isScored) return "Solo cronograma";
+  return event.scoreCategory ?? "Sin categoría";
+}
+
+function getEventStyle(event: EventItem) {
+  if (!event.isScored) return nonScoredStyle;
+  if (!event.scoreCategory) return fallbackScoredStyle;
+  return categoryStyles[event.scoreCategory] ?? fallbackScoredStyle;
 }
 
 function formatDayKey(date: Date) {
@@ -215,7 +228,7 @@ export default async function CronogramaPage() {
                       {day.events.map(({ event, start, end }) => (
                         <article
                           key={event.id}
-                          className={`rounded-2xl border p-4 ${categoryStyles[event.scoreCategory] ?? "border-white/15 bg-white/10 text-white"}`}
+                          className={`rounded-2xl border p-4 ${getEventStyle(event)}`}
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div>
@@ -226,7 +239,7 @@ export default async function CronogramaPage() {
                             </div>
 
                             <span className="rounded-full border border-current/20 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]">
-                              {event.scoreCategory}
+                              {getEventBadgeLabel(event)}
                             </span>
                           </div>
 
@@ -299,7 +312,7 @@ export default async function CronogramaPage() {
                             {day.events.map(({ event, start, end, startColumn, span, lane }) => (
                               <article
                                 key={event.id}
-                                className={`rounded-[1.25rem] border p-4 shadow-[0_10px_30px_rgba(15,23,42,0.08)] ${categoryStyles[event.scoreCategory] ?? "border-white/15 bg-white/10 text-white"}`}
+                                className={`rounded-[1.25rem] border p-4 shadow-[0_10px_30px_rgba(15,23,42,0.08)] ${getEventStyle(event)}`}
                                 style={{
                                   gridColumn: `${startColumn} / span ${span}`,
                                   gridRow: `${lane + 1}`,
@@ -315,7 +328,7 @@ export default async function CronogramaPage() {
                                     </div>
 
                                     <span className="rounded-full border border-current/20 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]">
-                                      {event.scoreCategory}
+                                      {getEventBadgeLabel(event)}
                                     </span>
                                   </div>
 

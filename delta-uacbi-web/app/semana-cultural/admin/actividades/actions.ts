@@ -35,6 +35,12 @@ function ensureValidEnum<T extends string>(
   return value as T;
 }
 
+function parseIsScored(rawValue: string) {
+  if (rawValue === "true") return true;
+  if (rawValue === "false") return false;
+  throw new Error("Selecciona si la actividad suma puntos.");
+}
+
 function getTimeZoneOffsetMilliseconds(date: Date, timeZone: string) {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone,
@@ -151,6 +157,7 @@ export async function createEvent(formData: FormData) {
   const name = String(formData.get("name") || "").trim();
   const slug = String(formData.get("slug") || "").trim().toLowerCase();
   const typeRaw = String(formData.get("type") || "").trim();
+  const isScoredRaw = String(formData.get("isScored") || "").trim();
   const scoreCategoryRaw = String(formData.get("scoreCategory") || "").trim();
   const place = String(formData.get("place") || "").trim();
   const eventDateRaw = String(formData.get("eventDate") || "").trim();
@@ -158,16 +165,23 @@ export async function createEvent(formData: FormData) {
   const teamCapacityRaw = String(formData.get("teamCapacity") || "").trim();
   const memberCapacityRaw = String(formData.get("memberCapacity") || "").trim();
 
-  if (!name || !slug || !typeRaw || !scoreCategoryRaw || !place || !eventDateRaw) {
+  if (!name || !slug || !typeRaw || !isScoredRaw || !place || !eventDateRaw) {
     throw new Error("Faltan campos obligatorios.");
   }
 
   const type = ensureValidEnum(typeRaw, Object.values(EventType), "Tipo de actividad inválido.");
-  const scoreCategory = ensureValidEnum(
-    scoreCategoryRaw,
-    Object.values(ScoreCategory),
-    "Categoría de puntos inválida."
-  );
+  const isScored = parseIsScored(isScoredRaw);
+  if (isScored && !scoreCategoryRaw) {
+    throw new Error("Las actividades puntuables requieren categoría de puntos.");
+  }
+
+  const scoreCategory = isScored
+    ? ensureValidEnum(
+        scoreCategoryRaw,
+        Object.values(ScoreCategory),
+        "Categoría de puntos inválida."
+      )
+    : null;
 
   const teamCapacity = parseOptionalCapacity(teamCapacityRaw, "Cupo de equipos");
   const memberCapacity = parseOptionalCapacity(memberCapacityRaw, "Cupo de integrantes");
@@ -181,6 +195,7 @@ export async function createEvent(formData: FormData) {
         name,
         slug,
         type,
+        isScored,
         scoreCategory,
         place,
         eventDate,

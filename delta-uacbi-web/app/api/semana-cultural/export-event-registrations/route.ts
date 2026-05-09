@@ -73,6 +73,8 @@ export async function GET(req: Request) {
 
   const headers = [
     "Actividad",
+    "Suma puntos",
+    "Categoría de puntos",
     "Animal/Equipo",
     "ComposicionEquipo",
     "Responsable",
@@ -100,6 +102,8 @@ export async function GET(req: Request) {
 
     return [
       event.name,
+      event.isScored ? "Sí" : "No",
+      event.isScored ? event.scoreCategory ?? "Sin categoría" : "No aplica",
       registration.team.animal,
       composition,
       registration.team.responsableNombre,

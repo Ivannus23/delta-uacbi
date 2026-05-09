@@ -22,6 +22,10 @@ const positions = [
   { value: ScorePosition.PENALIZACION, label: "Penalizacion" },
 ];
 
+function getScoredEventLabel(event: { name: string; scoreCategory: string | null }) {
+  return `${event.name} · ${event.scoreCategory ?? "Sin categoría"}`;
+}
+
 export default async function AdminPuntosPage({
   searchParams,
 }: {
@@ -38,7 +42,7 @@ export default async function AdminPuntosPage({
   const [events, logs] = edition
     ? await Promise.all([
         db.event.findMany({
-          where: { editionId: edition.id },
+          where: { editionId: edition.id, isScored: true },
           include: {
             registrations: {
               include: {
@@ -118,7 +122,7 @@ export default async function AdminPuntosPage({
                   defaultValue={selectedEventId}
                   options={events.map((event) => ({
                     value: event.id,
-                    label: `${event.name} · ${event.scoreCategory}`,
+                    label: getScoredEventLabel(event),
                   }))}
                   placeholder="Selecciona una actividad"
                   className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 outline-none"
@@ -156,7 +160,7 @@ export default async function AdminPuntosPage({
                   defaultValue={selectedEventId}
                   options={events.map((event) => ({
                     value: event.id,
-                    label: `${event.name} · ${event.scoreCategory}`,
+                    label: getScoredEventLabel(event),
                   }))}
                   placeholder="Selecciona una actividad"
                   className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"

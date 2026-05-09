@@ -164,7 +164,8 @@ model Event {
   name           String
   slug           String
   type           EventType
-  scoreCategory  ScoreCategory
+  isScored       Boolean       @default(true)
+  scoreCategory  ScoreCategory?
   place          String
   eventDate      DateTime
   startTime      DateTime?

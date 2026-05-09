@@ -10,6 +10,11 @@ import { getActiveEdition } from "@/lib/semana-cultural";
 
 export const revalidate = 60;
 
+function getEventBadgeLabel(event: { isScored: boolean; scoreCategory: string | null }) {
+  if (!event.isScored) return "Solo cronograma";
+  return event.scoreCategory ?? "Sin categoría";
+}
+
 export default async function ResultadosPage() {
   const edition = await getActiveEdition();
 
@@ -40,7 +45,7 @@ export default async function ResultadosPage() {
           take: 15,
         }),
         db.event.findMany({
-          where: { editionId: edition.id },
+          where: { editionId: edition.id, isVisible: true },
           orderBy: { eventDate: "asc" },
           take: 8,
         }),
@@ -125,7 +130,12 @@ export default async function ResultadosPage() {
                 {events.length ? (
                   events.map((event) => (
                     <div key={event.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                      <p className="font-medium">{event.name}</p>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="font-medium">{event.name}</p>
+                        <span className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-muted-foreground">
+                          {getEventBadgeLabel(event)}
+                        </span>
+                      </div>
                       <p className="mt-1 text-sm text-muted-foreground">{event.place}</p>
                     </div>
                   ))

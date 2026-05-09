@@ -59,12 +59,16 @@ export async function assignScore(formData: FormData) {
         select: {
           id: true,
           name: true,
+          isScored: true,
           scoreCategory: true,
           status: true,
         },
       });
 
       if (!event) throw new Error("Actividad no encontrada.");
+      if (!event.isScored || !event.scoreCategory) {
+        throw new Error("Esta actividad no suma puntos.");
+      }
       if (!["CERRADA", "FINALIZADA"].includes(event.status)) {
         throw new Error("Solo puedes asignar puntos cuando la actividad esté cerrada o finalizada.");
       }

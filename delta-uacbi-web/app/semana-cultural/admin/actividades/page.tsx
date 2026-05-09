@@ -19,7 +19,8 @@ import {
   removeMemberFromEvent,
 } from "./actions";
 import { updateEventStatus, toggleCheckIn } from "./operations";
-import { EventStatus, EventType, ScoreCategory } from "@prisma/client";
+import { EventStatus, EventType } from "@prisma/client";
+import { EventScoringFields } from "./EventScoringFields";
 
 export const revalidate = 0;
 const DISPLAY_TIME_ZONE = "America/Mazatlan";
@@ -31,12 +32,6 @@ const eventTypes = [
   { value: EventType.ACADEMICA, label: "Academica" },
   { value: EventType.VIDEOJUEGO, label: "Videojuego" },
   { value: EventType.OTRA, label: "Otra" },
-];
-
-const scoreCategories = [
-  { value: ScoreCategory.TOPACIO, label: "Topacio" },
-  { value: ScoreCategory.DIAMANTE, label: "Diamante" },
-  { value: ScoreCategory.ESMERALDA, label: "Esmeralda" },
 ];
 
 function formatDate(date: Date) {
@@ -63,6 +58,17 @@ function statusLabel(status: EventStatus) {
     default:
       return status;
   }
+}
+
+function getEventScoreLabel(
+  event: { isScored: boolean; scoreCategory: string | null },
+  variant: "admin" | "schedule" = "admin"
+) {
+  if (event.isScored) {
+    return event.scoreCategory ?? "Sin categoría";
+  }
+
+  return variant === "schedule" ? "Solo cronograma" : "No puntuable";
 }
 
 export default async function AdminActividadesPage() {
@@ -107,29 +113,18 @@ export default async function AdminActividadesPage() {
                 />
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-2 block text-sm text-muted-foreground">Tipo</label>
-                  <SuggestionSelect
-                    name="type"
-                    required
-                    options={eventTypes}
-                    placeholder="Selecciona tipo"
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm text-muted-foreground">Categoria de puntos</label>
-                  <SuggestionSelect
-                    name="scoreCategory"
-                    required
-                    options={scoreCategories}
-                    placeholder="Selecciona categoria"
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
-                  />
-                </div>
+              <div>
+                <label className="mb-2 block text-sm text-muted-foreground">Tipo</label>
+                <SuggestionSelect
+                  name="type"
+                  required
+                  options={eventTypes}
+                  placeholder="Selecciona tipo"
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
+                />
               </div>
+
+              <EventScoringFields />
 
               <div>
                 <label className="mb-2 block text-sm text-muted-foreground">Lugar</label>
@@ -212,7 +207,7 @@ export default async function AdminActividadesPage() {
                     required
                     options={events.map((event) => ({
                       value: event.id,
-                      label: `${event.name} · ${event.scoreCategory}`,
+                      label: `${event.name} · ${getEventScoreLabel(event, "schedule")}`,
                     }))}
                     placeholder="Selecciona actividad"
                     className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
@@ -268,7 +263,7 @@ export default async function AdminActividadesPage() {
                     required
                     options={events.map((event) => ({
                       value: event.id,
-                      label: `${event.name} · ${event.scoreCategory}`,
+                      label: `${event.name} · ${getEventScoreLabel(event, "schedule")}`,
                     }))}
                     placeholder="Selecciona actividad"
                     className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
@@ -326,6 +321,9 @@ export default async function AdminActividadesPage() {
                         </div>
 
                         <div className="flex flex-wrap gap-2">
+                          <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-muted-foreground">
+                            {getEventScoreLabel(event)}
+                          </span>
                           <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-muted-foreground">
                             {statusLabel(event.status)}
                           </span>
