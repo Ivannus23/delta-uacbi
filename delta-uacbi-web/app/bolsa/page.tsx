@@ -37,7 +37,7 @@ export default async function BolsaPage() {
           <div>
             <h1 className="text-3xl font-semibold tracking-tight">Bolsa de trabajo</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Vacantes, prácticas y oportunidades para estudiantes.
+              Vacantess, prácticas y oportunidades para estudiantes.
             </p>
           </div>
 
