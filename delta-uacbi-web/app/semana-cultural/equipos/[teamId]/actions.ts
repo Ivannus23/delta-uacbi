@@ -6,6 +6,7 @@ import { getSessionUserInfo, isStaffRole } from "@/lib/auth";
 import { db } from "@/lib/db";
 import {
   getEditionMemberKeys,
+  MAX_TEAM_MEMBERS,
   normalizeInstitutionalEmail,
   resolveAcademicProgramForUnit,
   resolveAcademicUnit,
@@ -16,7 +17,6 @@ import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-const MAX_MEMBERS_PER_TEAM = 50;
 const MIN_FULL_NAME_LENGTH = 5;
 const MATRICULA_REGEX = /^(?!.*\s)[A-Za-z0-9-]{4,32}$/;
 const INSTITUTIONAL_EMAIL_REGEX = /^[a-z0-9._%+-]+@uan\.edu\.mx$/i;
@@ -269,8 +269,8 @@ export async function addMember(teamId: string, formData: FormData) {
         where: { teamId: team.id },
       });
 
-      if (memberCount >= MAX_MEMBERS_PER_TEAM) {
-        throw new Error(`Este equipo ya alcanzo el limite de ${MAX_MEMBERS_PER_TEAM} participantes.`);
+      if (memberCount >= MAX_TEAM_MEMBERS) {
+        throw new Error(`Este equipo ya alcanzo el limite de ${MAX_TEAM_MEMBERS} participantes.`);
       }
 
       const validatedMember = validateMemberFields({
@@ -391,13 +391,13 @@ export async function bulkAddMembers(teamId: string, formData: FormData) {
         where: { teamId: team.id },
       });
 
-      if (currentCount >= MAX_MEMBERS_PER_TEAM) {
-        throw new Error(`Este equipo ya alcanzo el limite de ${MAX_MEMBERS_PER_TEAM} participantes.`);
+      if (currentCount >= MAX_TEAM_MEMBERS) {
+        throw new Error(`Este equipo ya alcanzo el limite de ${MAX_TEAM_MEMBERS} participantes.`);
       }
 
-      const remainingSlots = MAX_MEMBERS_PER_TEAM - currentCount;
+      const remainingSlots = MAX_TEAM_MEMBERS - currentCount;
       if (bulkMembers.length > remainingSlots) {
-        throw new Error("El equipo superaria el maximo de 50 participantes.");
+        throw new Error(`El equipo superaria el maximo de ${MAX_TEAM_MEMBERS} participantes.`);
       }
 
       const preparedMembers = bulkMembers.map((member) => {

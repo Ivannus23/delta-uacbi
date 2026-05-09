@@ -13,6 +13,7 @@ type MemberDraft = {
 
 type MembersSpreadsheetProps = {
   remainingSlots: number;
+  maxTeamMembers: number;
   action: (
     prevState: { status: "idle" | "success" | "error"; message: string },
     formData: FormData
@@ -75,7 +76,7 @@ function resolveUnitFromRaw(rawUnit: string): "UAE" | "UACBI" {
   return rawUnit.trim().toUpperCase() === "UAE" ? "UAE" : "UACBI";
 }
 
-export function MembersSpreadsheet({ remainingSlots, action }: MembersSpreadsheetProps) {
+export function MembersSpreadsheet({ remainingSlots, maxTeamMembers, action }: MembersSpreadsheetProps) {
   const [rows, setRows] = useState<MemberDraft[]>(() => createEmptyRows(remainingSlots));
   const hiddenPayloadRef = useRef<HTMLInputElement>(null);
   const [pasteText, setPasteText] = useState("");
@@ -260,7 +261,7 @@ export function MembersSpreadsheet({ remainingSlots, action }: MembersSpreadshee
       <section className="card-next rounded-3xl p-6">
         <h2 className="text-2xl font-semibold">Captura tipo Excel</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Este equipo ya completo sus 50 participantes incluyendo al encargado.
+          Este equipo ya completo sus {maxTeamMembers} participantes incluyendo al encargado.
         </p>
       </section>
     );

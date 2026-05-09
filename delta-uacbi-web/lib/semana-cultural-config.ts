@@ -1,5 +1,7 @@
 import { AcademicProgram, AcademicUnit } from "@prisma/client";
 
+export const MAX_TEAM_MEMBERS = 60;
+
 export const SEMANA_CULTURAL_UNIDADES = ["UAE", "UACBI"] as const;
 export type UnidadAcademica = (typeof SEMANA_CULTURAL_UNIDADES)[number];
 

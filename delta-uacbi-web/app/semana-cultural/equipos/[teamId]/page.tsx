@@ -9,6 +9,7 @@ import { db } from "@/lib/db";
 import {
   getAcademicProgramLabel,
   getAcademicUnitLabel,
+  MAX_TEAM_MEMBERS,
   getTeamCompositionFromMembers,
   getTeamCompositionLabel,
   resolveAcademicUnitOrNull,
@@ -66,7 +67,7 @@ export default async function TeamDetailPage({
   }
 
   const memberCount = team.members.length;
-  const remainingSlots = Math.max(0, 50 - memberCount);
+  const remainingSlots = Math.max(0, MAX_TEAM_MEMBERS - memberCount);
   const composition = getTeamCompositionFromMembers(team.members);
   const compositionLabel = getTeamCompositionLabel(composition);
   const responsableAcademicUnit =
@@ -133,7 +134,9 @@ export default async function TeamDetailPage({
             <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
               <p className="text-sm text-muted-foreground">
                 Participantes registrados:{" "}
-                <span className="font-semibold text-foreground">{memberCount}/50</span>
+                <span className="font-semibold text-foreground">
+                  {memberCount}/{MAX_TEAM_MEMBERS}
+                </span>
               </p>
             </div>
           </section>
@@ -141,7 +144,7 @@ export default async function TeamDetailPage({
           <section className="card-next rounded-3xl p-6">
             <h2 className="text-2xl font-semibold">Agregar integrante</h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              El limite es 50 participantes por equipo incluyendo al encargado.
+              El limite es {MAX_TEAM_MEMBERS} participantes por equipo incluyendo al encargado.
             </p>
 
             {remainingSlots > 0 ? (
@@ -204,7 +207,7 @@ export default async function TeamDetailPage({
               </form>
             ) : (
               <p className="mt-4 text-sm text-amber-300">
-                El equipo ya completo sus 50 participantes incluyendo al encargado.
+                El equipo ya completo sus {MAX_TEAM_MEMBERS} participantes incluyendo al encargado.
               </p>
             )}
           </section>
@@ -214,6 +217,7 @@ export default async function TeamDetailPage({
           <MembersSpreadsheet
             key={`${team.id}-${remainingSlots}`}
             remainingSlots={remainingSlots}
+            maxTeamMembers={MAX_TEAM_MEMBERS}
             action={bulkAddMembersWithState.bind(null, team.id)}
           />
         </section>

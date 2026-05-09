@@ -8,6 +8,7 @@ import {
   UserRole,
 } from "@prisma/client";
 import {
+  MAX_TEAM_MEMBERS,
   getAcademicProgramLabel,
   getEditionMemberKeys,
   normalizeInstitutionalEmail,
@@ -18,7 +19,7 @@ import {
 
 const CONFIRM_ENV = "CONFIRM_SEMANA_TEST_SEED";
 const TEAM_TARGET_COUNT = 24;
-const TARGET_MEMBERS_PER_TEAM = 50;
+const TARGET_MEMBERS_PER_TEAM = MAX_TEAM_MEMBERS;
 const TEST_NAME_PREFIX = "[SC-TEST]";
 const TEST_EMAIL_DOMAIN = "sc-test.local";
 const MEMBER_NAME_PREFIX = "Integrante Prueba";

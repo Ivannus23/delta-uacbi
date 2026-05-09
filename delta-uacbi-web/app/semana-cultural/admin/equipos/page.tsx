@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import {
   getAcademicProgramLabel,
   getAcademicUnitLabel,
+  MAX_TEAM_MEMBERS,
   getTeamCompositionFromMembers,
   getTeamCompositionLabel,
   resolveAcademicUnitOrNull,
@@ -106,7 +107,9 @@ export default async function AdminEquiposPage() {
                           {getAcademicUnitLabel(responsableUnit)} ·{" "}
                           {getAcademicProgramLabel(team.responsableAcademicProgram)}
                         </td>
-                        <td className="px-4 py-3">{team.members.length}/50</td>
+                        <td className="px-4 py-3">
+                          {team.members.length}/{MAX_TEAM_MEMBERS}
+                        </td>
                         <td className="px-4 py-3 font-semibold">{team.totalPoints}</td>
                         <td className="px-4 py-3">
                           <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-muted-foreground">
@@ -176,7 +179,8 @@ export default async function AdminEquiposPage() {
                             </span>
                           </div>
                           <p className="mt-2 text-sm text-muted-foreground">
-                            {composition} · {team.members.length}/50 participantes · {team.responsableNombre}
+                            {composition} · {team.members.length}/{MAX_TEAM_MEMBERS} participantes ·{" "}
+                            {team.responsableNombre}
                           </p>
                         </div>
 

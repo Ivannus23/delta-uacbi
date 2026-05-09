@@ -6,7 +6,7 @@ import { HeaderSemana } from "@/components/semana-cultural/HeaderSemana";
 import { RegistroUnidadProgramaField } from "@/components/semana-cultural/RegistroUnidadProgramaField";
 import { SuggestionSelect } from "@/components/semana-cultural/SuggestionSelect";
 import { db } from "@/lib/db";
-import { SEMANA_CULTURAL_ANIMALES } from "@/lib/semana-cultural-config";
+import { MAX_TEAM_MEMBERS, SEMANA_CULTURAL_ANIMALES } from "@/lib/semana-cultural-config";
 import { getActiveEdition } from "@/lib/semana-cultural";
 import { redirect } from "next/navigation";
 import { createTeam } from "./actions";
@@ -94,7 +94,7 @@ export default async function RegistroPage() {
                 <strong>{user.email}</strong>.
               </p>
               <p className="mt-2 text-sm text-emerald-100/90">
-                El encargado tambien cuenta como participante inicial del equipo (1/50).
+                El encargado tambien cuenta como participante inicial del equipo (1/{MAX_TEAM_MEMBERS}).
               </p>
             </div>
 
