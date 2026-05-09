@@ -1,4 +1,8 @@
 import { db } from "@/lib/db";
+import {
+  getTeamCompositionFromMembers,
+  getTeamCompositionLabel,
+} from "@/lib/semana-cultural-config";
 
 export async function getActiveEdition() {
   return db.culturalEdition.findFirst({
@@ -27,17 +31,27 @@ export async function getRanking() {
   const edition = await getActiveEdition();
   if (!edition) return [];
 
-  return db.team.findMany({
+  const teams = await db.team.findMany({
     where: { editionId: edition.id },
-    orderBy: [{ totalPoints: "desc" }, { name: "asc" }],
+    orderBy: [{ totalPoints: "desc" }, { animal: "asc" }],
     select: {
       id: true,
-      name: true,
-      unidadAcademica: true,
-      color: true,
       animal: true,
+      members: {
+        select: {
+          academicUnit: true,
+        },
+      },
       totalPoints: true,
       status: true,
     },
   });
+
+  return teams.map((team) => ({
+    id: team.id,
+    animal: team.animal,
+    compositionLabel: getTeamCompositionLabel(getTeamCompositionFromMembers(team.members)),
+    totalPoints: team.totalPoints,
+    status: team.status,
+  }));
 }

@@ -10,7 +10,15 @@ export async function getActiveEditionWithEvents() {
     include: {
       registrations: {
         include: {
-          team: true,
+          team: {
+            include: {
+              members: {
+                select: {
+                  academicUnit: true,
+                },
+              },
+            },
+          },
           member: true,
         },
       },
@@ -33,6 +41,13 @@ export async function getAvailableTeams() {
       editionId: edition.id,
       status: "APROBADO",
     },
-    orderBy: { name: "asc" },
+    include: {
+      members: {
+        select: {
+          academicUnit: true,
+        },
+      },
+    },
+    orderBy: { animal: "asc" },
   });
 }

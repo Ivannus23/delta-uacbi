@@ -1,4 +1,12 @@
+import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import {
+  getAcademicProgramLabel,
+  getAcademicUnitLabel,
+  getTeamCompositionFromMembers,
+  getTeamCompositionLabel,
+  resolveAcademicUnitOrNull,
+} from "@/lib/semana-cultural-config";
 import { getActiveEdition } from "@/lib/semana-cultural";
 
 function escapeCsv(value: string | number | null | undefined) {
@@ -10,12 +18,25 @@ function escapeCsv(value: string | number | null | undefined) {
 }
 
 export async function GET(req: Request) {
+  const session = await auth();
+  const role =
+    session?.user &&
+    typeof session.user === "object" &&
+    "role" in session.user &&
+    typeof session.user.role === "string"
+      ? session.user.role
+      : null;
+
+  if (role !== "ADMIN" && role !== "STAFF") {
+    return new Response("No autorizado", { status: 403 });
+  }
+
   const { searchParams } = new URL(req.url);
   const eventId = searchParams.get("eventId");
 
   const edition = await getActiveEdition();
   if (!edition) {
-    return new Response("No hay edición activa", { status: 404 });
+    return new Response("No hay edicion activa", { status: 404 });
   }
 
   if (!eventId) {
@@ -30,7 +51,15 @@ export async function GET(req: Request) {
     include: {
       registrations: {
         include: {
-          team: true,
+          team: {
+            include: {
+              members: {
+                select: {
+                  academicUnit: true,
+                },
+              },
+            },
+          },
           member: true,
         },
         orderBy: { createdAt: "asc" },
@@ -44,29 +73,52 @@ export async function GET(req: Request) {
 
   const headers = [
     "Actividad",
-    "Equipo",
-    "UnidadAcademica",
-    "Integrante",
+    "Animal/Equipo",
+    "ComposicionEquipo",
+    "Responsable",
+    "TelefonoResponsable",
+    "CorreoResponsable",
+    "UnidadResponsable",
+    "CarreraResponsable",
+    "Participante",
     "Matricula",
     "CorreoInstitucional",
+    "UnidadParticipante",
+    "CarreraParticipante",
+    "RolParticipante",
     "CheckIn",
     "Notas",
   ];
 
-  const rows = event.registrations.map((registration: (typeof event.registrations)[number]) =>
-    [
+  const rows = event.registrations.map((registration) => {
+    const composition = getTeamCompositionLabel(
+      getTeamCompositionFromMembers(registration.team.members)
+    );
+    const responsibleUnit =
+      registration.team.responsableAcademicUnit ??
+      resolveAcademicUnitOrNull(registration.team.unidadAcademica);
+
+    return [
       event.name,
-      registration.team.name,
-      registration.team.unidadAcademica,
+      registration.team.animal,
+      composition,
+      registration.team.responsableNombre,
+      registration.team.responsableTelefono,
+      registration.team.responsableCorreo,
+      getAcademicUnitLabel(responsibleUnit),
+      getAcademicProgramLabel(registration.team.responsableAcademicProgram),
       registration.member?.fullName ?? "",
       registration.member?.matricula ?? "",
       registration.member?.institutionalEmail ?? "",
+      getAcademicUnitLabel(registration.member?.academicUnit),
+      getAcademicProgramLabel(registration.member?.academicProgram),
+      registration.member ? (registration.member.isLeader ? "Encargado" : "Integrante") : "",
       registration.checkedIn ? "SI" : "NO",
       registration.notes ?? "",
     ]
       .map(escapeCsv)
-      .join(",")
-  );
+      .join(",");
+  });
 
   const csv = [headers.join(","), ...rows].join("\n");
 

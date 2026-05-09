@@ -15,14 +15,22 @@ export async function POST(req: Request) {
   if (incoming !== secret) return json({ ok: false, error: "Unauthorized" }, 401);
 
   try {
-    const body = await req.json().catch(() => ({}));
-    const paths: string[] = Array.isArray(body?.paths) ? body.paths : ["/"];
+    const body: unknown = await req.json().catch(() => ({}));
+    const bodyPaths =
+      typeof body === "object" && body !== null && "paths" in body
+        ? (body as { paths?: unknown }).paths
+        : undefined;
+    const paths =
+      Array.isArray(bodyPaths) && bodyPaths.every((path) => typeof path === "string")
+        ? bodyPaths
+        : ["/"];
 
     const { revalidatePath } = await import("next/cache");
     for (const p of paths) revalidatePath(p);
 
     return json({ ok: true, revalidated: paths });
-  } catch (e: any) {
-    return json({ ok: false, error: e?.message ?? "Unknown error" }, 500);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return json({ ok: false, error: message }, 500);
   }
 }

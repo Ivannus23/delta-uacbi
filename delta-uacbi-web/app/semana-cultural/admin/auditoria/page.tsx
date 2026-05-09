@@ -1,5 +1,5 @@
-import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
+import { Navbar } from "@/components/Navbar";
 import { HeaderSemana } from "@/components/semana-cultural/HeaderSemana";
 import { requireStaff } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -10,6 +10,13 @@ export default async function AuditoriaPage() {
   await requireStaff();
 
   const logs = await db.auditLog.findMany({
+    include: {
+      createdBy: {
+        select: {
+          email: true,
+        },
+      },
+    },
     orderBy: { createdAt: "desc" },
     take: 100,
   });
@@ -32,6 +39,7 @@ export default async function AuditoriaPage() {
                 <tr>
                   <th className="px-4 py-3">Acción</th>
                   <th className="px-4 py-3">Entidad</th>
+                  <th className="px-4 py-3">Usuario</th>
                   <th className="px-4 py-3">Detalle</th>
                   <th className="px-4 py-3">Fecha</th>
                 </tr>
@@ -42,6 +50,9 @@ export default async function AuditoriaPage() {
                     <tr key={log.id} className="border-t border-white/10">
                       <td className="px-4 py-3 font-medium">{log.action}</td>
                       <td className="px-4 py-3 text-muted-foreground">{log.entityType}</td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {log.createdBy?.email ?? "Sistema"}
+                      </td>
                       <td className="px-4 py-3 text-muted-foreground">{log.detail ?? "—"}</td>
                       <td className="px-4 py-3 text-muted-foreground">
                         {new Intl.DateTimeFormat("es-MX", {
@@ -56,7 +67,7 @@ export default async function AuditoriaPage() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={4} className="px-4 py-6 text-muted-foreground">
+                    <td colSpan={5} className="px-4 py-6 text-muted-foreground">
                       Aún no hay eventos de auditoría registrados.
                     </td>
                   </tr>

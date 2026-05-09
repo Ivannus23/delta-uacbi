@@ -3,7 +3,7 @@ import { Navbar } from "@/components/Navbar";
 import { HeaderSemana } from "@/components/semana-cultural/HeaderSemana";
 import { getActiveEvents } from "@/lib/semana-cultural";
 
-const DISPLAY_TIME_ZONE = "UTC";
+const DISPLAY_TIME_ZONE = "America/Mazatlan";
 const DEFAULT_EVENT_DURATION_HOURS = 1;
 
 type EventItem = Awaited<ReturnType<typeof getActiveEvents>>[number];

@@ -4,11 +4,15 @@ import { HeaderSemana } from "@/components/semana-cultural/HeaderSemana";
 import { SuggestionSelect } from "@/components/semana-cultural/SuggestionSelect";
 import { requireStaff } from "@/lib/auth";
 import { db } from "@/lib/db";
+import {
+  getTeamCompositionFromMembers,
+  getTeamCompositionLabel,
+} from "@/lib/semana-cultural-config";
 import { getActiveEdition } from "@/lib/semana-cultural";
 import { assignScore, deleteScoreLog } from "./actions";
 import { ScorePosition } from "@prisma/client";
 
-export const revalidate = 3600;
+export const revalidate = 0;
 
 const positions = [
   { value: ScorePosition.PRIMER_LUGAR, label: "1er lugar" },
@@ -37,9 +41,16 @@ export default async function AdminPuntosPage({
           where: { editionId: edition.id },
           include: {
             registrations: {
-              where: { memberId: null },
               include: {
-                team: true,
+                team: {
+                  include: {
+                    members: {
+                      select: {
+                        academicUnit: true,
+                      },
+                    },
+                  },
+                },
               },
             },
           },
@@ -60,16 +71,28 @@ export default async function AdminPuntosPage({
   const selectedEvent = events.find((event) => event.id === selectedEventId) ?? null;
 
   const registeredTeams = selectedEvent
-    ? selectedEvent.registrations
-        .map((registration) => registration.team)
-        .filter((team) => (selectedUnidad ? team.unidadAcademica === selectedUnidad : true))
-        .sort((a, b) => a.name.localeCompare(b.name))
+    ? Array.from(
+        new Map(
+          selectedEvent.registrations.map((registration) => [
+            registration.team.id,
+            registration.team,
+          ])
+        ).values()
+      )
+        .filter((team) =>
+          selectedUnidad
+            ? getTeamCompositionFromMembers(team.members) === selectedUnidad
+            : true
+        )
+        .sort((a, b) => a.animal.localeCompare(b.animal))
     : [];
 
   const uniqueUnits = Array.from(
     new Set(
       events.flatMap((event) =>
-        event.registrations.map((registration) => registration.team.unidadAcademica)
+        event.registrations.map((registration) =>
+          getTeamCompositionFromMembers(registration.team.members)
+        )
       )
     )
   ).sort();
@@ -103,11 +126,14 @@ export default async function AdminPuntosPage({
               </div>
 
               <div>
-                <label className="mb-2 block text-sm text-muted-foreground">Unidad academica</label>
+                <label className="mb-2 block text-sm text-muted-foreground">Composicion</label>
                 <SuggestionSelect
                   name="unidad"
                   defaultValue={selectedUnidad}
-                  options={uniqueUnits.map((unit) => ({ value: unit, label: unit }))}
+                  options={uniqueUnits.map((unit) => ({
+                    value: unit,
+                    label: getTeamCompositionLabel(unit),
+                  }))}
                   placeholder="Todas"
                   className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 outline-none"
                 />
@@ -144,7 +170,9 @@ export default async function AdminPuntosPage({
                   required
                   options={registeredTeams.map((team) => ({
                     value: team.id,
-                    label: `${team.name} · ${team.unidadAcademica}`,
+                    label: `${team.animal} · ${getTeamCompositionLabel(
+                      getTeamCompositionFromMembers(team.members)
+                    )}`,
                   }))}
                   placeholder={
                     selectedEvent
@@ -195,8 +223,11 @@ export default async function AdminPuntosPage({
                         key={team.id}
                         className="rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm"
                       >
-                        <span className="font-medium">{team.name}</span>
-                        <span className="text-muted-foreground"> · {team.unidadAcademica}</span>
+                        <span className="font-medium">{team.animal}</span>
+                        <span className="text-muted-foreground">
+                          {" "}
+                          · {getTeamCompositionLabel(getTeamCompositionFromMembers(team.members))}
+                        </span>
                       </div>
                     ))
                   ) : (
@@ -234,7 +265,7 @@ export default async function AdminPuntosPage({
                   {logs.length ? (
                     logs.map((log) => (
                       <tr key={log.id} className="border-t border-white/10">
-                        <td className="px-4 py-3 font-medium">{log.team.name}</td>
+                        <td className="px-4 py-3 font-medium">{log.team.animal}</td>
                         <td className="px-4 py-3 text-muted-foreground">
                           {log.event?.name ?? "Sin actividad"}
                         </td>

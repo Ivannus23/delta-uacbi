@@ -2,11 +2,15 @@ import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { HeaderSemana } from "@/components/semana-cultural/HeaderSemana";
-import { requireStaff } from "@/lib/auth";
+import { getSessionUserInfo, requireStaff } from "@/lib/auth";
 import { db } from "@/lib/db";
+import {
+  getTeamCompositionFromMembers,
+  getTeamCompositionLabel,
+} from "@/lib/semana-cultural-config";
 import { getActiveEdition } from "@/lib/semana-cultural";
 
-export const revalidate = 3600;
+export const revalidate = 0;
 
 const adminLinks = [
   { href: "/semana-cultural/admin/equipos", label: "Equipos", description: "Revisar y aprobar equipos" },
@@ -21,7 +25,7 @@ const adminOnlyLinks = [
 
 export default async function DashboardSemanaPage() {
   const session = await requireStaff();
-  const role = (session.user as any).role;
+  const { role } = getSessionUserInfo(session.user);
   const visibleLinks = role === "ADMIN" ? [...adminLinks, ...adminOnlyLinks] : adminLinks;
 
   const edition = await getActiveEdition();
@@ -52,8 +56,18 @@ export default async function DashboardSemanaPage() {
         db.scoreLog.count({ where: { editionId: edition.id } }),
         db.team.findMany({
           where: { editionId: edition.id },
-          orderBy: [{ totalPoints: "desc" }, { name: "asc" }],
+          orderBy: [{ totalPoints: "desc" }, { animal: "asc" }],
           take: 5,
+          select: {
+            id: true,
+            animal: true,
+            totalPoints: true,
+            members: {
+              select: {
+                academicUnit: true,
+              },
+            },
+          },
         }),
       ])
     : [0, 0, 0, 0, 0, 0, []];
@@ -111,7 +125,7 @@ export default async function DashboardSemanaPage() {
                 <tr>
                   <th className="px-4 py-3">Posicion</th>
                   <th className="px-4 py-3">Equipo</th>
-                  <th className="px-4 py-3">Unidad</th>
+                  <th className="px-4 py-3">Composicion</th>
                   <th className="px-4 py-3">Puntos</th>
                 </tr>
               </thead>
@@ -120,8 +134,10 @@ export default async function DashboardSemanaPage() {
                   topTeams.map((team, index) => (
                     <tr key={team.id} className="border-t border-white/10">
                       <td className="px-4 py-3">{index + 1}</td>
-                      <td className="px-4 py-3 font-medium">{team.name}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{team.unidadAcademica}</td>
+                      <td className="px-4 py-3 font-medium">{team.animal}</td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {getTeamCompositionLabel(getTeamCompositionFromMembers(team.members))}
+                      </td>
                       <td className="px-4 py-3 font-semibold">{team.totalPoints}</td>
                     </tr>
                   ))

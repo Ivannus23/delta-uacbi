@@ -12,6 +12,20 @@ enum UserRole {
   JEFE_GRUPO
 }
 
+enum AcademicUnit {
+  UACBI
+  UAE
+}
+
+enum AcademicProgram {
+  INGENIERIA_MECANICA
+  INGENIERIA_CONTROL_COMPUTACION
+  LICENCIATURA_MATEMATICAS
+  INGENIERIA_QUIMICA
+  INGENIERIA_ELECTRONICA
+  LICENCIATURA_ENFERMERIA
+}
+
 enum TeamStatus {
   PENDIENTE
   APROBADO
@@ -69,6 +83,7 @@ model User {
   assignedTeams Team[] @relation("TeamLeader")
 
   createdScoreLogs ScoreLog[] @relation("ScoreLogCreatedBy")
+  createdAuditLogs AuditLog[] @relation("AuditLogCreatedBy")
 }
 
 model CulturalEdition {
@@ -92,13 +107,16 @@ model CulturalEdition {
 model Team {
   id                  String     @id @default(cuid())
   editionId           String
-  unidadAcademica     String
-  name                String
+  unidadAcademica     String // Legacy compatibility: mirrors responsableAcademicUnit when available
+  name                String // Internal compatibility: always mirrors animal
   animal              String
-  color               String
   responsableNombre   String
-  responsableTelefono String?
+  responsableTelefono String
   responsableCorreo   String
+  responsableMatricula String?
+  responsableGradoGrupo String?
+  responsableAcademicUnit AcademicUnit?
+  responsableAcademicProgram AcademicProgram?
   status              TeamStatus @default(PENDIENTE)
   totalPoints         Int        @default(0)
   leaderId            String?
@@ -113,6 +131,9 @@ model Team {
 
   @@index([editionId])
   @@unique([editionId, name])
+  @@unique([editionId, animal])
+  @@unique([editionId, leaderId])
+  @@unique([editionId, responsableCorreo])
 }
 
 model Member {
@@ -121,6 +142,11 @@ model Member {
   fullName           String
   matricula          String
   institutionalEmail String
+  academicUnit       AcademicUnit
+  academicProgram    AcademicProgram
+  isLeader           Boolean @default(false)
+  editionMatriculaKey String @unique
+  editionEmailKey     String @unique
   gradoGrupo         String
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
@@ -167,6 +193,8 @@ model EventRegistration {
   status    RegistrationStatus @default(PENDIENTE)
   checkedIn Boolean            @default(false)
   notes     String?
+  teamRegistrationKey   String? @unique
+  memberRegistrationKey String? @unique
   createdAt DateTime           @default(now())
   updatedAt DateTime           @updatedAt
 
@@ -198,9 +226,11 @@ model ScoreLog {
   editionId    String
   eventId      String?
   teamId       String
+  position     ScorePosition?
   movementType ScoreMovementType
   points       Int
   reason       String
+  eventPositionKey String? @unique
   createdById  String?
   createdAt    DateTime          @default(now())
 
@@ -220,5 +250,8 @@ model AuditLog {
   entityType String
   entityId   String?
   detail     String?
+  createdById String?
   createdAt  DateTime @default(now())
+
+  createdBy User? @relation("AuditLogCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 }

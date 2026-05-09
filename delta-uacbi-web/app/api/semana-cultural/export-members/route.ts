@@ -1,5 +1,11 @@
-﻿import { auth } from "@/auth";
+import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import {
+  getAcademicProgramLabel,
+  getAcademicUnitLabel,
+  getTeamCompositionFromMembers,
+  getTeamCompositionLabel,
+} from "@/lib/semana-cultural-config";
 import { getActiveEdition } from "@/lib/semana-cultural";
 
 function escapeCsv(value: string | number | null | undefined) {
@@ -26,7 +32,7 @@ export async function GET(request: Request) {
 
   const edition = await getActiveEdition();
   if (!edition) {
-    return new Response("No hay edición activa", { status: 404 });
+    return new Response("No hay edicion activa", { status: 404 });
   }
 
   const { searchParams } = new URL(request.url);
@@ -43,7 +49,7 @@ export async function GET(request: Request) {
     },
     include: {
       members: {
-        orderBy: { fullName: "asc" },
+        orderBy: [{ isLeader: "desc" }, { fullName: "asc" }],
       },
     },
   });
@@ -52,34 +58,42 @@ export async function GET(request: Request) {
     return new Response("Equipo no encontrado", { status: 404 });
   }
 
+  const composition = getTeamCompositionLabel(getTeamCompositionFromMembers(team.members));
+
   const headers = [
-    "Equipo",
-    "UnidadAcademica",
-    "Responsable",
-    "CorreoResponsable",
-    "Integrante",
+    "Animal/Equipo",
+    "ComposicionEquipo",
+    "NombreParticipante",
     "Matricula",
     "CorreoInstitucional",
     "GradoGrupo",
+    "UnidadAcademicaParticipante",
+    "CarreraParticipante",
+    "Rol",
+    "Responsable",
+    "TelefonoResponsable",
   ];
 
   const rows = team.members.map((member) =>
     [
-      team.name,
-      team.unidadAcademica,
-      team.responsableNombre,
-      team.responsableCorreo,
+      team.animal,
+      composition,
       member.fullName,
       member.matricula,
       member.institutionalEmail,
       member.gradoGrupo,
+      getAcademicUnitLabel(member.academicUnit),
+      getAcademicProgramLabel(member.academicProgram),
+      member.isLeader ? "Encargado" : "Integrante",
+      team.responsableNombre,
+      team.responsableTelefono,
     ]
       .map(escapeCsv)
       .join(",")
   );
 
   const csv = [headers.join(","), ...rows].join("\n");
-  const safeTeamName = team.name.toLowerCase().replace(/\s+/g, "-");
+  const safeTeamName = team.animal.toLowerCase().replace(/\s+/g, "-");
 
   return new Response(csv, {
     status: 200,

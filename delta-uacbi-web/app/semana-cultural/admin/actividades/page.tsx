@@ -1,10 +1,16 @@
-﻿import { Navbar } from "@/components/Navbar";
+import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { HeaderSemana } from "@/components/semana-cultural/HeaderSemana";
 import { SuggestionSelect } from "@/components/semana-cultural/SuggestionSelect";
 import { requireStaff } from "@/lib/auth";
 import { getActiveEditionWithEvents, getAvailableTeams } from "@/lib/events";
 import { getAvailableMembers } from "@/lib/members";
+import {
+  getAcademicProgramLabel,
+  getAcademicUnitLabel,
+  getTeamCompositionFromMembers,
+  getTeamCompositionLabel,
+} from "@/lib/semana-cultural-config";
 import {
   createEvent,
   registerTeamToEvent,
@@ -15,13 +21,14 @@ import {
 import { updateEventStatus, toggleCheckIn } from "./operations";
 import { EventStatus, EventType, ScoreCategory } from "@prisma/client";
 
-export const revalidate = 3600;
+export const revalidate = 0;
+const DISPLAY_TIME_ZONE = "America/Mazatlan";
 
 const eventTypes = [
   { value: EventType.DEPORTIVA, label: "Deportiva" },
   { value: EventType.CULTURAL, label: "Cultural" },
   { value: EventType.RECREATIVA, label: "Recreativa" },
-  { value: EventType.ACADEMICA, label: "AcadÃ©mica" },
+  { value: EventType.ACADEMICA, label: "Academica" },
   { value: EventType.VIDEOJUEGO, label: "Videojuego" },
   { value: EventType.OTRA, label: "Otra" },
 ];
@@ -34,6 +41,7 @@ const scoreCategories = [
 
 function formatDate(date: Date) {
   return new Intl.DateTimeFormat("es-MX", {
+    timeZone: DISPLAY_TIME_ZONE,
     weekday: "short",
     day: "numeric",
     month: "short",
@@ -61,10 +69,7 @@ export default async function AdminActividadesPage() {
   await requireStaff();
 
   const data = await getActiveEditionWithEvents();
-  const [teams, members] = await Promise.all([
-    getAvailableTeams(),
-    getAvailableMembers(),
-  ]);
+  const [teams, members] = await Promise.all([getAvailableTeams(), getAvailableMembers()]);
 
   const events = data?.events ?? [];
 
@@ -88,7 +93,7 @@ export default async function AdminActividadesPage() {
                   name="name"
                   required
                   className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
-                  placeholder="Ej. Torneo relÃ¡mpago de ajedrez"
+                  placeholder="Ej. Torneo relampago de ajedrez"
                 />
               </div>
 
@@ -115,7 +120,7 @@ export default async function AdminActividadesPage() {
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm text-muted-foreground">CategorÃ­a de puntos</label>
+                  <label className="mb-2 block text-sm text-muted-foreground">Categoria de puntos</label>
                   <SuggestionSelect
                     name="scoreCategory"
                     required
@@ -145,6 +150,9 @@ export default async function AdminActividadesPage() {
                     required
                     className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
                   />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Se interpreta en horario local de Mazatlan.
+                  </p>
                 </div>
 
                 <div>
@@ -171,12 +179,12 @@ export default async function AdminActividadesPage() {
               </div>
 
               <div>
-                <label className="mb-2 block text-sm text-muted-foreground">DescripciÃ³n</label>
+                <label className="mb-2 block text-sm text-muted-foreground">Descripcion</label>
                 <textarea
                   name="description"
                   rows={3}
                   className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
-                  placeholder="DescripciÃ³n breve"
+                  placeholder="Descripcion breve"
                 />
               </div>
 
@@ -218,7 +226,9 @@ export default async function AdminActividadesPage() {
                     required
                     options={teams.map((team) => ({
                       value: team.id,
-                      label: `${team.name} · ${team.unidadAcademica}`,
+                      label: `${team.animal} · ${getTeamCompositionLabel(
+                        getTeamCompositionFromMembers(team.members)
+                      )}`,
                     }))}
                     placeholder="Selecciona equipo"
                     className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
@@ -247,7 +257,7 @@ export default async function AdminActividadesPage() {
             <section className="card-next rounded-3xl p-6">
               <h2 className="text-2xl font-semibold">Inscribir integrante a actividad</h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                Ãšsalo para box, videojuegos u otras actividades individuales.
+                Usalo para box, videojuegos u otras actividades individuales.
               </p>
 
               <form action={registerMemberToEvent} className="mt-6 grid gap-4">
@@ -272,7 +282,9 @@ export default async function AdminActividadesPage() {
                     required
                     options={members.map((member) => ({
                       value: member.id,
-                      label: `${member.fullName} · ${member.team.name}`,
+                      label: `${member.fullName} · ${member.team.animal} · ${getAcademicUnitLabel(
+                        member.academicUnit
+                      )} · ${getAcademicProgramLabel(member.academicProgram)}`,
                     }))}
                     placeholder="Selecciona integrante"
                     className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
@@ -309,7 +321,7 @@ export default async function AdminActividadesPage() {
                         <div>
                           <h3 className="text-lg font-semibold">{event.name}</h3>
                           <p className="mt-1 text-sm text-muted-foreground">
-                            {formatDate(event.eventDate)} Â· {event.place}
+                            {formatDate(event.eventDate)} · {event.place}
                           </p>
                         </div>
 
@@ -372,7 +384,7 @@ export default async function AdminActividadesPage() {
                             <thead className="bg-white/5 text-xs text-muted-foreground">
                               <tr>
                                 <th className="px-4 py-3">Equipo / integrante</th>
-                                <th className="px-4 py-3">Unidad</th>
+                                <th className="px-4 py-3">Unidad o composicion</th>
                                 <th className="px-4 py-3">Check-in</th>
                                 <th className="px-4 py-3">Notas</th>
                                 <th className="px-4 py-3">Acciones</th>
@@ -383,11 +395,15 @@ export default async function AdminActividadesPage() {
                                 <tr key={registration.id} className="border-t border-white/10">
                                   <td className="px-4 py-3 font-medium">
                                     {registration.member
-                                      ? `${registration.member.fullName} Â· ${registration.team.name}`
-                                      : registration.team.name}
+                                      ? `${registration.member.fullName} · ${registration.team.animal}`
+                                      : registration.team.animal}
                                   </td>
                                   <td className="px-4 py-3 text-muted-foreground">
-                                    {registration.team.unidadAcademica}
+                                    {registration.member
+                                      ? getAcademicUnitLabel(registration.member.academicUnit)
+                                      : getTeamCompositionLabel(
+                                          getTeamCompositionFromMembers(registration.team.members)
+                                        )}
                                   </td>
                                   <td className="px-4 py-3">
                                     <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-muted-foreground">
@@ -395,7 +411,7 @@ export default async function AdminActividadesPage() {
                                     </span>
                                   </td>
                                   <td className="px-4 py-3 text-muted-foreground">
-                                    {registration.notes || "â€”"}
+                                    {registration.notes || "—"}
                                   </td>
                                   <td className="px-4 py-3">
                                     <div className="flex flex-wrap gap-2">
@@ -437,14 +453,14 @@ export default async function AdminActividadesPage() {
                         </div>
                       ) : (
                         <p className="mt-4 text-sm text-muted-foreground">
-                          AÃºn no hay equipos o integrantes inscritos en esta actividad.
+                          Aun no hay equipos o integrantes inscritos en esta actividad.
                         </p>
                       )}
                     </div>
                   ))
                 ) : (
                   <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-muted-foreground">
-                    AÃºn no hay actividades registradas.
+                    Aun no hay actividades registradas.
                   </div>
                 )}
               </div>
@@ -456,5 +472,3 @@ export default async function AdminActividadesPage() {
     </>
   );
 }
-
-

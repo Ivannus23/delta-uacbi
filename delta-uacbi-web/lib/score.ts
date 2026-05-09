@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import {
+  Prisma,
   ScoreCategory,
   ScoreMovementType,
   ScorePosition,
@@ -22,7 +23,14 @@ export async function getPointsForRule(
 }
 
 export async function recalculateTeamPoints(teamId: string) {
-  const logs = await db.scoreLog.findMany({
+  return recalculateTeamPointsWithClient(db, teamId);
+}
+
+export async function recalculateTeamPointsWithClient(
+  client: Prisma.TransactionClient | typeof db,
+  teamId: string
+) {
+  const logs = await client.scoreLog.findMany({
     where: { teamId },
     select: {
       movementType: true,
@@ -37,7 +45,7 @@ export async function recalculateTeamPoints(teamId: string) {
     return acc + Math.abs(log.points);
   }, 0);
 
-  await db.team.update({
+  await client.team.update({
     where: { id: teamId },
     data: { totalPoints: total },
   });

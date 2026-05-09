@@ -3,57 +3,34 @@ import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
 import { LoginButton } from "@/components/auth/LoginButton";
 import { HeaderSemana } from "@/components/semana-cultural/HeaderSemana";
+import { RegistroUnidadProgramaField } from "@/components/semana-cultural/RegistroUnidadProgramaField";
 import { SuggestionSelect } from "@/components/semana-cultural/SuggestionSelect";
 import { db } from "@/lib/db";
+import { SEMANA_CULTURAL_ANIMALES } from "@/lib/semana-cultural-config";
 import { getActiveEdition } from "@/lib/semana-cultural";
 import { redirect } from "next/navigation";
 import { createTeam } from "./actions";
-
-const unidadesAcademicas = ["UAE", "UACBI"];
-
-const animales = [
-  "Jaguar",
-  "Ocelote",
-  "Capibara",
-  "Perezoso de tres dedos",
-  "Mono capuchino",
-  "Kinkaju",
-  "Coati",
-  "Tapir amazonico",
-  "Delfin rosado del Amazonas",
-  "Guacamaya roja",
-  "Tucan toco",
-  "Quetzal",
-  "Gallito de las rocas",
-  "Colibri",
-  "Loro amazonico",
-  "Aguila harpia",
-  "Flamenco",
-  "Mariposa morpho azul",
-  "Mariposa monarca",
-  "Escarabajo hercules",
-  "Escarabajo rinoceronte",
-  "Hormiga bala",
-  "Mantis religiosa",
-  "Tarantula",
-  "Rana dardo venenosa",
-  "Rana de ojos rojos",
-  "Anaconda verde",
-  "Boa constrictora",
-  "Iguana verde",
-  "Basilisco",
-  "Camaleon",
-  "Tortuga charapa",
-  "Caiman",
-  "Okapi",
-  "Cacomixtle",
-  "Guacamayo azul",
-];
 
 export default async function RegistroPage() {
   const session = await auth();
   const user = session?.user;
   const edition = await getActiveEdition();
+
+  const registeredTeams = edition
+    ? await db.team.findMany({
+        where: {
+          editionId: edition.id,
+        },
+        select: {
+          animal: true,
+        },
+      })
+    : [];
+
+  const usedAnimales = new Set(registeredTeams.map((team) => team.animal));
+  const availableAnimales = SEMANA_CULTURAL_ANIMALES.filter((animal) => !usedAnimales.has(animal));
+  const noAnimalesAvailable = Boolean(edition) && availableAnimales.length === 0;
+  const canRegisterTeam = Boolean(edition) && availableAnimales.length > 0;
 
   const userId =
     user && typeof user === "object" && "id" in user && typeof user.id === "string"
@@ -84,8 +61,8 @@ export default async function RegistroPage() {
 
         <h1 className="text-3xl font-semibold">Registro de equipos</h1>
         <p className="mt-2 text-muted-foreground">
-          El jefe de grupo primero inicia sesión con Google y después completa los datos
-          adicionales del equipo.
+          El jefe de grupo primero inicia sesion con Google y despues completa los datos del equipo
+          y del encargado.
         </p>
 
         {!user ? (
@@ -93,10 +70,10 @@ export default async function RegistroPage() {
             <div className="inline-flex rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100">
               Paso 1 de 2
             </div>
-            <h2 className="mt-4 text-2xl font-semibold">Inicia sesión con tu cuenta institucional</h2>
+            <h2 className="mt-4 text-2xl font-semibold">Inicia sesion con tu cuenta institucional</h2>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-muted-foreground">
               Usaremos tu cuenta de Google para identificar al jefe de grupo, vincular el equipo a
-              su perfil y después pedir únicamente los datos adicionales del registro.
+              su perfil y despues pedir solo los datos adicionales del registro.
             </p>
 
             <div className="mt-6">
@@ -116,49 +93,44 @@ export default async function RegistroPage() {
                 Vas a registrar como responsable a <strong>{user.name}</strong> con el correo{" "}
                 <strong>{user.email}</strong>.
               </p>
+              <p className="mt-2 text-sm text-emerald-100/90">
+                El encargado tambien cuenta como participante inicial del equipo (1/50).
+              </p>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="mb-2 block text-sm text-muted-foreground">Unidad academica</label>
-                <SuggestionSelect
-                  name="unidadAcademica"
-                  options={unidadesAcademicas.map((unidad) => ({ value: unidad, label: unidad }))}
-                  placeholder="Selecciona una unidad academica"
-                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm text-muted-foreground">Nombre del equipo</label>
-                <input
-                  name="name"
-                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
-                  placeholder="Ej. Titanes"
-                  required
-                />
-              </div>
+              <RegistroUnidadProgramaField
+                unidadName="responsableAcademicUnit"
+                programName="responsableAcademicProgram"
+                unidadLabel="Unidad academica del responsable"
+                programLabel="Carrera del responsable"
+              />
 
               <div>
                 <label className="mb-2 block text-sm text-muted-foreground">Animal</label>
                 <SuggestionSelect
                   name="animal"
-                  options={animales.map((animal) => ({ value: animal, label: animal }))}
-                  placeholder="Escribe o selecciona un animal"
+                  options={availableAnimales.map((animal) => ({ value: animal, label: animal }))}
+                  placeholder={
+                    noAnimalesAvailable
+                      ? "Ya no hay animales disponibles"
+                      : "Escribe o selecciona un animal"
+                  }
                   className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
                   required
+                  disabled={noAnimalesAvailable}
                 />
               </div>
 
-              <div>
-                <label className="mb-2 block text-sm text-muted-foreground">Color</label>
-                <input
-                  name="color"
-                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
-                  placeholder="Ej. Azul"
-                  required
-                />
+              <div className="sm:col-span-2">
+                <p className="text-sm text-muted-foreground">
+                  El equipo se identifica por el animal seleccionado.
+                </p>
+                {noAnimalesAvailable ? (
+                  <p className="mt-2 text-sm text-amber-300">
+                    Ya no hay animales disponibles para esta edicion activa.
+                  </p>
+                ) : null}
               </div>
 
               <div>
@@ -176,8 +148,31 @@ export default async function RegistroPage() {
                 <label className="mb-2 block text-sm text-muted-foreground">Telefono</label>
                 <input
                   name="responsableTelefono"
+                  required
                   className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
-                  placeholder="Opcional"
+                  placeholder="Telefono del responsable"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm text-muted-foreground">Matricula del responsable</label>
+                <input
+                  name="responsableMatricula"
+                  required
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
+                  placeholder="Ej. 22123456"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm text-muted-foreground">
+                  Grado y grupo del responsable
+                </label>
+                <input
+                  name="responsableGradoGrupo"
+                  required
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
+                  placeholder="Ej. 4A"
                 />
               </div>
 
@@ -195,7 +190,8 @@ export default async function RegistroPage() {
             <div className="mt-6">
               <button
                 type="submit"
-                className="btn-sheen rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm hover:bg-white/10"
+                disabled={!canRegisterTeam}
+                className="btn-sheen rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Registrar equipo
               </button>

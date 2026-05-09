@@ -2,6 +2,10 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { HeaderSemana } from "@/components/semana-cultural/HeaderSemana";
 import { db } from "@/lib/db";
+import {
+  getTeamCompositionFromMembers,
+  getTeamCompositionLabel,
+} from "@/lib/semana-cultural-config";
 import { getActiveEdition } from "@/lib/semana-cultural";
 
 export const revalidate = 60;
@@ -13,8 +17,18 @@ export default async function ResultadosPage() {
     ? await Promise.all([
         db.team.findMany({
           where: { editionId: edition.id },
-          orderBy: [{ totalPoints: "desc" }, { name: "asc" }],
+          orderBy: [{ totalPoints: "desc" }, { animal: "asc" }],
           take: 10,
+          select: {
+            id: true,
+            animal: true,
+            totalPoints: true,
+            members: {
+              select: {
+                academicUnit: true,
+              },
+            },
+          },
         }),
         db.scoreLog.findMany({
           where: { editionId: edition.id },
@@ -42,17 +56,15 @@ export default async function ResultadosPage() {
         <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="card-next rounded-3xl p-6">
             <h2 className="text-3xl font-semibold">Ranking en vivo</h2>
-            <p className="mt-2 text-muted-foreground">
-              Clasificación general actual de equipos.
-            </p>
+            <p className="mt-2 text-muted-foreground">Clasificacion general actual de equipos.</p>
 
             <div className="mt-6 overflow-hidden rounded-2xl border border-white/10">
               <table className="w-full text-left">
                 <thead className="bg-white/5 text-sm text-muted-foreground">
                   <tr>
-                    <th className="px-4 py-3">Posición</th>
+                    <th className="px-4 py-3">Posicion</th>
                     <th className="px-4 py-3">Equipo</th>
-                    <th className="px-4 py-3">Unidad</th>
+                    <th className="px-4 py-3">Composicion</th>
                     <th className="px-4 py-3">Puntos</th>
                   </tr>
                 </thead>
@@ -61,15 +73,17 @@ export default async function ResultadosPage() {
                     teams.map((team, index) => (
                       <tr key={team.id} className="border-t border-white/10">
                         <td className="px-4 py-3 font-semibold">{index + 1}</td>
-                        <td className="px-4 py-3 font-medium">{team.name}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{team.unidadAcademica}</td>
+                        <td className="px-4 py-3 font-medium">{team.animal}</td>
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {getTeamCompositionLabel(getTeamCompositionFromMembers(team.members))}
+                        </td>
                         <td className="px-4 py-3 text-lg font-semibold">{team.totalPoints}</td>
                       </tr>
                     ))
                   ) : (
                     <tr>
                       <td colSpan={4} className="px-4 py-6 text-muted-foreground">
-                        Aún no hay resultados disponibles.
+                        Aun no hay resultados disponibles.
                       </td>
                     </tr>
                   )}
@@ -86,9 +100,10 @@ export default async function ResultadosPage() {
                   scoreLogs.map((log) => (
                     <div key={log.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
                       <p className="font-medium">
-                        {log.team.name}
+                        {log.team.animal}
                         <span className="text-muted-foreground">
-                          {" "}· {log.event?.name ?? "Sin actividad"}
+                          {" "}
+                          · {log.event?.name ?? "Sin actividad"}
                         </span>
                       </p>
                       <p className="mt-1 text-sm text-muted-foreground">{log.reason}</p>

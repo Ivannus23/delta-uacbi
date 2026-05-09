@@ -1,5 +1,12 @@
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import {
+  getAcademicProgramLabel,
+  getAcademicUnitLabel,
+  getTeamCompositionFromMembers,
+  getTeamCompositionLabel,
+  resolveAcademicUnitOrNull,
+} from "@/lib/semana-cultural-config";
 import { getActiveEdition } from "@/lib/semana-cultural";
 
 function escapeCsv(value: string | number | null | undefined) {
@@ -25,9 +32,8 @@ export async function GET() {
   }
 
   const edition = await getActiveEdition();
-
   if (!edition) {
-    return new Response("No hay edición activa", { status: 404 });
+    return new Response("No hay edicion activa", { status: 404 });
   }
 
   const teams = await db.team.findMany({
@@ -35,38 +41,41 @@ export async function GET() {
     include: {
       members: true,
     },
-    orderBy: { name: "asc" },
+    orderBy: { animal: "asc" },
   });
 
   const headers = [
-    "Equipo",
-    "UnidadAcademica",
-    "Animal",
-    "Color",
+    "Animal/Equipo",
+    "Composicion",
     "Responsable",
-    "CorreoResponsable",
     "TelefonoResponsable",
+    "CorreoResponsable",
+    "UnidadResponsable",
+    "CarreraResponsable",
     "Estado",
     "Puntos",
-    "Integrantes",
+    "Participantes",
   ];
 
-  const rows = teams.map((team: (typeof teams)[number]) =>
-    [
-      team.name,
-      team.unidadAcademica,
+  const rows = teams.map((team) => {
+    const composition = getTeamCompositionLabel(getTeamCompositionFromMembers(team.members));
+    const responsibleUnit = team.responsableAcademicUnit ?? resolveAcademicUnitOrNull(team.unidadAcademica);
+
+    return [
       team.animal,
-      team.color,
+      composition,
       team.responsableNombre,
+      team.responsableTelefono,
       team.responsableCorreo,
-      team.responsableTelefono ?? "",
+      getAcademicUnitLabel(responsibleUnit),
+      getAcademicProgramLabel(team.responsableAcademicProgram),
       team.status,
       team.totalPoints,
       team.members.length,
     ]
       .map(escapeCsv)
-      .join(",")
-  );
+      .join(",");
+  });
 
   const csv = [headers.join(","), ...rows].join("\n");
 

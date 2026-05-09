@@ -1,14 +1,28 @@
-import { Navbar } from "@/components/Navbar";
-import { Footer } from "@/components/Footer";
-import { HeaderSemana } from "@/components/semana-cultural/HeaderSemana";
-import { requireUser } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { getActiveEdition } from "@/lib/semana-cultural";
 import Link from "next/link";
+import { Footer } from "@/components/Footer";
+import { Navbar } from "@/components/Navbar";
+import { HeaderSemana } from "@/components/semana-cultural/HeaderSemana";
+import { getSessionUserInfo, requireUser } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { getTeamCompositionFromMembers, getTeamCompositionLabel } from "@/lib/semana-cultural-config";
+import { getActiveEdition } from "@/lib/semana-cultural";
 
 export default async function MiEquipoPage() {
   const session = await requireUser();
-  const userId = (session.user as any).id;
+  const { id: userId } = getSessionUserInfo(session.user);
+
+  if (!userId) {
+    return (
+      <>
+        <Navbar />
+        <main className="container py-10">
+          <HeaderSemana />
+          <p className="text-muted-foreground">No se pudo identificar el usuario autenticado.</p>
+        </main>
+        <Footer />
+      </>
+    );
+  }
 
   const edition = await getActiveEdition();
   if (!edition) {
@@ -17,7 +31,7 @@ export default async function MiEquipoPage() {
         <Navbar />
         <main className="container py-10">
           <HeaderSemana />
-          <p>No hay edición activa.</p>
+          <p>No hay edicion activa.</p>
         </main>
         <Footer />
       </>
@@ -30,7 +44,11 @@ export default async function MiEquipoPage() {
       leaderId: userId,
     },
     include: {
-      members: true,
+      members: {
+        select: {
+          academicUnit: true,
+        },
+      },
     },
   });
 
@@ -40,9 +58,7 @@ export default async function MiEquipoPage() {
         <Navbar />
         <main className="container py-10">
           <HeaderSemana />
-          <p className="text-muted-foreground">
-            No tienes un equipo asignado todavía.
-          </p>
+          <p className="text-muted-foreground">No tienes un equipo asignado todavia.</p>
         </main>
         <Footer />
       </>
@@ -56,9 +72,9 @@ export default async function MiEquipoPage() {
         <HeaderSemana />
 
         <section className="card-next rounded-3xl p-6">
-          <h2 className="text-3xl font-semibold">{team.name}</h2>
+          <h2 className="text-3xl font-semibold">{team.animal}</h2>
           <p className="mt-2 text-muted-foreground">
-            {team.unidadAcademica} · {team.color} · {team.animal}
+            {getTeamCompositionLabel(getTeamCompositionFromMembers(team.members))}
           </p>
 
           <div className="mt-6">
