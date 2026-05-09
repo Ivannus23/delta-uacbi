@@ -24,6 +24,7 @@ import { EventScoringFields } from "./EventScoringFields";
 
 export const revalidate = 0;
 const DISPLAY_TIME_ZONE = "America/Mazatlan";
+const LEGACY_EVENT_FALLBACK_DURATION_MS = 60 * 60 * 1000;
 
 const eventTypes = [
   { value: EventType.DEPORTIVA, label: "Deportiva" },
@@ -34,15 +35,36 @@ const eventTypes = [
   { value: EventType.OTRA, label: "Otra" },
 ];
 
-function formatDate(date: Date) {
+function formatEventDate(date: Date) {
   return new Intl.DateTimeFormat("es-MX", {
     timeZone: DISPLAY_TIME_ZONE,
     weekday: "short",
     day: "numeric",
     month: "short",
+  }).format(date);
+}
+
+function formatEventTime(date: Date) {
+  return new Intl.DateTimeFormat("es-MX", {
+    timeZone: DISPLAY_TIME_ZONE,
     hour: "numeric",
     minute: "2-digit",
   }).format(date);
+}
+
+function getEventStart(event: { startTime: Date | null; eventDate: Date }) {
+  return event.startTime ?? event.eventDate;
+}
+
+function getEventEnd(event: { startTime: Date | null; endTime: Date | null; eventDate: Date }) {
+  const start = getEventStart(event);
+  return event.endTime ?? new Date(start.getTime() + LEGACY_EVENT_FALLBACK_DURATION_MS);
+}
+
+function formatEventSchedule(event: { startTime: Date | null; endTime: Date | null; eventDate: Date }) {
+  const start = getEventStart(event);
+  const end = getEventEnd(event);
+  return `${formatEventDate(event.eventDate)} · ${formatEventTime(start)} - ${formatEventTime(end)}`;
 }
 
 function statusLabel(status: EventStatus) {
@@ -136,20 +158,41 @@ export default async function AdminActividadesPage() {
                 />
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-3">
                 <div>
-                  <label className="mb-2 block text-sm text-muted-foreground">Fecha y hora</label>
+                  <label className="mb-2 block text-sm text-muted-foreground">Fecha de la actividad</label>
                   <input
-                    type="datetime-local"
+                    type="date"
                     name="eventDate"
                     required
                     className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
                   />
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Se interpreta en horario local de Mazatlan.
-                  </p>
                 </div>
 
+                <div>
+                  <label className="mb-2 block text-sm text-muted-foreground">Hora de inicio</label>
+                  <input
+                    type="time"
+                    name="startTime"
+                    required
+                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm text-muted-foreground">Hora de termino</label>
+                  <input
+                    type="time"
+                    name="endTime"
+                    required
+                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
+                  />
+                </div>
+              </div>
+
+              <p className="text-xs text-muted-foreground">Se interpreta en horario local de Mazatlan.</p>
+
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-2 block text-sm text-muted-foreground">Cupo de equipos</label>
                   <input
@@ -316,7 +359,7 @@ export default async function AdminActividadesPage() {
                         <div>
                           <h3 className="text-lg font-semibold">{event.name}</h3>
                           <p className="mt-1 text-sm text-muted-foreground">
-                            {formatDate(event.eventDate)} · {event.place}
+                            {formatEventSchedule(event)} · {event.place}
                           </p>
                         </div>
 

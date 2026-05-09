@@ -23,7 +23,7 @@ export async function getActiveEvents() {
         in: ["ABIERTA", "CERRADA", "FINALIZADA"],
       },
     },
-    orderBy: { eventDate: "asc" },
+    orderBy: [{ eventDate: "asc" }, { startTime: "asc" }],
   });
 }
 

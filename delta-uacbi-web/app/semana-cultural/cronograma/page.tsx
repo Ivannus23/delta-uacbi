@@ -4,7 +4,8 @@ import { HeaderSemana } from "@/components/semana-cultural/HeaderSemana";
 import { getActiveEvents } from "@/lib/semana-cultural";
 
 const DISPLAY_TIME_ZONE = "America/Mazatlan";
-const DEFAULT_EVENT_DURATION_HOURS = 1;
+const LEGACY_EVENT_FALLBACK_DURATION_MINUTES = 60;
+const GRID_STEP_MINUTES = 30;
 
 type EventItem = Awaited<ReturnType<typeof getActiveEvents>>[number];
 
@@ -12,7 +13,7 @@ type DaySchedule = {
   key: string;
   label: string;
   accent: string;
-  hours: number[];
+  slots: number[];
   events: Array<{
     event: EventItem;
     start: Date;
@@ -46,7 +47,10 @@ function getEventStart(event: EventItem) {
 
 function getEventEnd(event: EventItem) {
   const start = getEventStart(event);
-  return event.endTime ?? new Date(start.getTime() + DEFAULT_EVENT_DURATION_HOURS * 60 * 60 * 1000);
+  if (event.endTime && event.endTime.getTime() > start.getTime()) {
+    return event.endTime;
+  }
+  return new Date(start.getTime() + LEGACY_EVENT_FALLBACK_DURATION_MINUTES * 60 * 1000);
 }
 
 function getEventBadgeLabel(event: EventItem) {
@@ -87,8 +91,10 @@ function formatTimeLabel(date: Date) {
   }).format(date);
 }
 
-function formatHourHeader(hour: number) {
-  return `${String(hour).padStart(2, "0")}:00`;
+function formatSlotHeader(minuteOfDay: number) {
+  const hour = Math.floor(minuteOfDay / 60);
+  const minute = minuteOfDay % 60;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
 function getHourInTimeZone(date: Date) {
@@ -110,14 +116,18 @@ function getMinuteInTimeZone(date: Date) {
   );
 }
 
-function getGridStart(start: Date, minHour: number) {
-  return Math.max(1, getHourInTimeZone(start) - minHour + 1);
+function getMinuteOfDayInTimeZone(date: Date) {
+  return getHourInTimeZone(date) * 60 + getMinuteInTimeZone(date);
+}
+
+function getGridStart(start: Date, minMinute: number) {
+  return Math.max(1, Math.floor((getMinuteOfDayInTimeZone(start) - minMinute) / GRID_STEP_MINUTES) + 1);
 }
 
 function getGridSpan(start: Date, end: Date) {
-  const startDecimal = getHourInTimeZone(start) + getMinuteInTimeZone(start) / 60;
-  const endDecimal = getHourInTimeZone(end) + getMinuteInTimeZone(end) / 60;
-  return Math.max(1, Math.ceil(endDecimal - startDecimal));
+  const startMinute = getMinuteOfDayInTimeZone(start);
+  const endMinute = getMinuteOfDayInTimeZone(end);
+  return Math.max(1, Math.ceil((endMinute - startMinute) / GRID_STEP_MINUTES));
 }
 
 function buildSchedule(events: EventItem[]) {
@@ -149,15 +159,17 @@ function buildSchedule(events: EventItem[]) {
     .map(([key, dayEvents], index) => {
       const sorted = [...dayEvents].sort((left, right) => left.start.getTime() - right.start.getTime());
       const lanes: Date[] = [];
-      const minHour = Math.min(...sorted.map(({ start }) => getHourInTimeZone(start)));
-      const maxHour = Math.max(
-        ...sorted.map(
-          ({ end }) => getHourInTimeZone(end) + (getMinuteInTimeZone(end) > 0 ? 1 : 0)
-        )
+      const minMinute = Math.min(...sorted.map(({ start }) => getMinuteOfDayInTimeZone(start)));
+      const maxMinute = Math.max(...sorted.map(({ end }) => getMinuteOfDayInTimeZone(end)));
+      const startMinute = Math.floor(minMinute / GRID_STEP_MINUTES) * GRID_STEP_MINUTES;
+      const endMinute = Math.max(
+        startMinute + GRID_STEP_MINUTES,
+        Math.ceil(maxMinute / GRID_STEP_MINUTES) * GRID_STEP_MINUTES
       );
-      const startHour = Math.max(0, minHour);
-      const endHour = Math.max(startHour + 1, maxHour);
-      const hours = Array.from({ length: endHour - startHour + 1 }, (_, hourIndex) => startHour + hourIndex);
+      const slots = Array.from(
+        { length: Math.max(1, (endMinute - startMinute) / GRID_STEP_MINUTES) },
+        (_, slotIndex) => startMinute + slotIndex * GRID_STEP_MINUTES
+      );
 
       const positioned = sorted.map(({ event, start, end }) => {
         let lane = lanes.findIndex((lastEnd) => lastEnd.getTime() <= start.getTime());
@@ -172,7 +184,7 @@ function buildSchedule(events: EventItem[]) {
           event,
           start,
           end,
-          startColumn: getGridStart(start, startHour),
+          startColumn: getGridStart(start, startMinute),
           span: getGridSpan(start, end),
           lane,
         };
@@ -182,7 +194,7 @@ function buildSchedule(events: EventItem[]) {
         key,
         label: formatDayLabel(sorted[0].start),
         accent: accentStyles[index % accentStyles.length],
-        hours,
+        slots,
         events: positioned,
         laneCount: Math.max(1, lanes.length),
       };
@@ -258,7 +270,7 @@ export default async function CronogramaPage() {
             <section className="mt-8 hidden lg:block">
               <div className="grid gap-6">
                 {days.map((day, index) => {
-                  const timelineColumns = `repeat(${day.hours.length}, minmax(84px, 1fr))`;
+                  const timelineColumns = `repeat(${day.slots.length}, minmax(84px, 1fr))`;
 
                   return (
                     <div key={day.key} className="card-next overflow-hidden rounded-[2rem]">
@@ -266,12 +278,12 @@ export default async function CronogramaPage() {
                         <div className="border-r border-black/10 px-3 py-4 text-center">#</div>
                         <div className="border-r border-black/10 bg-white/80 px-4 py-4 text-center">Hora</div>
                         <div className="grid bg-[#cfc9e4]" style={{ gridTemplateColumns: timelineColumns }}>
-                          {day.hours.map((hour) => (
+                          {day.slots.map((slotMinute) => (
                             <div
-                              key={`${day.key}-${hour}`}
+                              key={`${day.key}-${slotMinute}`}
                               className="border-r border-black/10 px-3 py-4 text-center last:border-r-0"
                             >
-                              {formatHourHeader(hour)}
+                              {formatSlotHeader(slotMinute)}
                             </div>
                           ))}
                         </div>
@@ -294,9 +306,9 @@ export default async function CronogramaPage() {
                             className="absolute inset-0 grid"
                             style={{ gridTemplateColumns: timelineColumns }}
                           >
-                            {day.hours.map((hour) => (
+                            {day.slots.map((slotMinute) => (
                               <div
-                                key={`${day.key}-grid-${hour}`}
+                                key={`${day.key}-grid-${slotMinute}`}
                                 className="border-r border-[#d9d3ea] last:border-r-0"
                               />
                             ))}

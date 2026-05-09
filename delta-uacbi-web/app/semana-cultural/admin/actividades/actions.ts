@@ -95,6 +95,32 @@ function parseDateTimeLocalInTimeZone(rawValue: string, timeZone: string) {
   return new Date(timestamp);
 }
 
+function parseDateString(rawValue: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(rawValue)) {
+    throw new Error("La fecha no tiene un formato valido.");
+  }
+  return rawValue;
+}
+
+function parseTimeString(rawValue: string, label: string) {
+  const match = rawValue.match(/^([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/);
+  if (!match) {
+    throw new Error(`La ${label} no tiene un formato valido.`);
+  }
+  return `${match[1]}:${match[2]}:${match[3] ?? "00"}`;
+}
+
+function parseDateAndTimeInTimeZone(
+  rawDate: string,
+  rawTime: string,
+  timeZone: string,
+  label: string
+) {
+  const datePart = parseDateString(rawDate);
+  const timePart = parseTimeString(rawTime, label);
+  return parseDateTimeLocalInTimeZone(`${datePart}T${timePart}`, timeZone);
+}
+
 function parseOptionalCapacity(rawValue: string, label: string) {
   if (!rawValue) return null;
   const numeric = Number(rawValue);
@@ -161,11 +187,22 @@ export async function createEvent(formData: FormData) {
   const scoreCategoryRaw = String(formData.get("scoreCategory") || "").trim();
   const place = String(formData.get("place") || "").trim();
   const eventDateRaw = String(formData.get("eventDate") || "").trim();
+  const startTimeRaw = String(formData.get("startTime") || "").trim();
+  const endTimeRaw = String(formData.get("endTime") || "").trim();
   const description = String(formData.get("description") || "").trim();
   const teamCapacityRaw = String(formData.get("teamCapacity") || "").trim();
   const memberCapacityRaw = String(formData.get("memberCapacity") || "").trim();
 
-  if (!name || !slug || !typeRaw || !isScoredRaw || !place || !eventDateRaw) {
+  if (
+    !name ||
+    !slug ||
+    !typeRaw ||
+    !isScoredRaw ||
+    !place ||
+    !eventDateRaw ||
+    !startTimeRaw ||
+    !endTimeRaw
+  ) {
     throw new Error("Faltan campos obligatorios.");
   }
 
@@ -186,7 +223,24 @@ export async function createEvent(formData: FormData) {
   const teamCapacity = parseOptionalCapacity(teamCapacityRaw, "Cupo de equipos");
   const memberCapacity = parseOptionalCapacity(memberCapacityRaw, "Cupo de integrantes");
 
-  const eventDate = parseDateTimeLocalInTimeZone(eventDateRaw, EVENT_TIME_ZONE);
+  const datePart = parseDateString(eventDateRaw);
+  const eventDate = parseDateTimeLocalInTimeZone(`${datePart}T00:00:00`, EVENT_TIME_ZONE);
+  const startTime = parseDateAndTimeInTimeZone(
+    eventDateRaw,
+    startTimeRaw,
+    EVENT_TIME_ZONE,
+    "hora de inicio"
+  );
+  const endTime = parseDateAndTimeInTimeZone(
+    eventDateRaw,
+    endTimeRaw,
+    EVENT_TIME_ZONE,
+    "hora de termino"
+  );
+
+  if (endTime.getTime() <= startTime.getTime()) {
+    throw new Error("La hora de término debe ser mayor que la hora de inicio.");
+  }
 
   try {
     const event = await db.event.create({
@@ -199,6 +253,8 @@ export async function createEvent(formData: FormData) {
         scoreCategory,
         place,
         eventDate,
+        startTime,
+        endTime,
         description: description || null,
         teamCapacity,
         memberCapacity,

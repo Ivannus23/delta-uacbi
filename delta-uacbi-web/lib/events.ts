@@ -23,7 +23,7 @@ export async function getActiveEditionWithEvents() {
         },
       },
     },
-    orderBy: { eventDate: "asc" },
+    orderBy: [{ eventDate: "asc" }, { startTime: "asc" }],
   });
 
   return {
