@@ -15,6 +15,7 @@ import {
 import { getActiveEdition } from "@/lib/semana-cultural";
 import { updateTeamStatus } from "./actions";
 import { TeamStatus } from "@prisma/client";
+import { AdminTeamsMemberSearch } from "@/components/semana-cultural/AdminTeamsMemberSearch";
 
 export const revalidate = 0;
 
@@ -36,6 +37,22 @@ export default async function AdminEquiposPage() {
         orderBy: [{ totalPoints: "desc" }, { animal: "asc" }],
       })
     : [];
+
+  const searchableTeams = teams.map((team) => ({
+    id: team.id,
+    animal: team.animal,
+    status: team.status,
+    responsableNombre: team.responsableNombre,
+    responsableMatricula: team.responsableMatricula,
+    responsableCorreo: team.responsableCorreo,
+    members: team.members.map((member) => ({
+      id: member.id,
+      fullName: member.fullName,
+      matricula: member.matricula,
+      institutionalEmail: member.institutionalEmail,
+      isLeader: member.isLeader,
+    })),
+  }));
 
   return (
     <>
@@ -161,6 +178,10 @@ export default async function AdminEquiposPage() {
               </tbody>
             </table>
           </div>
+        </section>
+
+        <section className="mt-8">
+          <AdminTeamsMemberSearch teams={searchableTeams} />
         </section>
 
         <section className="mt-8 grid gap-4">
