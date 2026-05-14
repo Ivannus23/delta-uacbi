@@ -43,6 +43,32 @@ const INITIAL_SUBMIT_STATE = {
   message: "",
 };
 
+function normalizeDuplicateValues(values: Iterable<string>) {
+  return Array.from(new Set(Array.from(values).filter(Boolean))).sort((a, b) =>
+    a.localeCompare(b, "es", { sensitivity: "base" })
+  );
+}
+
+function formatMatriculaDuplicateInCaptureMessage(values: Iterable<string>) {
+  const normalized = normalizeDuplicateValues(values);
+  if (!normalized.length) {
+    return null;
+  }
+  return normalized.length === 1
+    ? `La matricula ${normalized[0]} esta duplicada en la captura.`
+    : `Las matriculas ${normalized.join(", ")} estan duplicadas en la captura.`;
+}
+
+function formatEmailDuplicateInCaptureMessage(values: Iterable<string>) {
+  const normalized = normalizeDuplicateValues(values);
+  if (!normalized.length) {
+    return null;
+  }
+  return normalized.length === 1
+    ? `El correo ${normalized[0]} esta duplicado en la captura.`
+    : `Los correos ${normalized.join(", ")} estan duplicados en la captura.`;
+}
+
 function createEmptyRows(count: number): MemberDraft[] {
   return Array.from({ length: count }, () => ({
     fullName: "",
@@ -198,6 +224,8 @@ export function MembersSpreadsheet({ remainingSlots, maxTeamMembers, action }: M
 
     const matriculas = new Set<string>();
     const emails = new Set<string>();
+    const duplicateMatriculas = new Set<string>();
+    const duplicateEmails = new Set<string>();
 
     for (const row of payload) {
       if (
@@ -230,14 +258,23 @@ export function MembersSpreadsheet({ remainingSlots, maxTeamMembers, action }: M
       const emailKey = row.institutionalEmail.toLowerCase();
 
       if (matriculas.has(matriculaKey)) {
-        throw new Error("Matricula duplicada en el archivo.");
+        duplicateMatriculas.add(row.matricula);
       }
       if (emails.has(emailKey)) {
-        throw new Error("Correo duplicado en el archivo.");
+        duplicateEmails.add(row.institutionalEmail);
       }
 
       matriculas.add(matriculaKey);
       emails.add(emailKey);
+    }
+
+    const duplicateMessages = [
+      formatMatriculaDuplicateInCaptureMessage(duplicateMatriculas),
+      formatEmailDuplicateInCaptureMessage(duplicateEmails),
+    ].filter((message): message is string => Boolean(message));
+
+    if (duplicateMessages.length) {
+      throw new Error(duplicateMessages.join(" "));
     }
 
     return payload;

@@ -35,6 +35,65 @@ export type BulkMembersState = {
   message: string;
 };
 
+type DuplicateScope = "captura" | "edicion";
+
+function normalizeDuplicateValues(values: Iterable<string>) {
+  return Array.from(new Set(Array.from(values).filter(Boolean))).sort((a, b) =>
+    a.localeCompare(b, "es", { sensitivity: "base" })
+  );
+}
+
+function formatMatriculaDuplicateMessage(values: Iterable<string>, scope: DuplicateScope) {
+  const normalized = normalizeDuplicateValues(values);
+  if (!normalized.length) {
+    return null;
+  }
+
+  if (scope === "captura") {
+    return normalized.length === 1
+      ? `La matricula ${normalized[0]} esta duplicada en la captura.`
+      : `Las matriculas ${normalized.join(", ")} estan duplicadas en la captura.`;
+  }
+
+  return normalized.length === 1
+    ? `La matricula ${normalized[0]} ya esta registrada en esta edicion.`
+    : `Las matriculas ${normalized.join(", ")} ya estan registradas en esta edicion.`;
+}
+
+function formatEmailDuplicateMessage(values: Iterable<string>, scope: DuplicateScope) {
+  const normalized = normalizeDuplicateValues(values);
+  if (!normalized.length) {
+    return null;
+  }
+
+  if (scope === "captura") {
+    return normalized.length === 1
+      ? `El correo ${normalized[0]} esta duplicado en la captura.`
+      : `Los correos ${normalized.join(", ")} estan duplicados en la captura.`;
+  }
+
+  return normalized.length === 1
+    ? `El correo ${normalized[0]} ya esta registrado en esta edicion.`
+    : `Los correos ${normalized.join(", ")} ya estan registrados en esta edicion.`;
+}
+
+function formatCombinedDuplicateMessage(params: {
+  matriculas: Iterable<string>;
+  emails: Iterable<string>;
+  scope: DuplicateScope;
+}) {
+  const messages = [
+    formatMatriculaDuplicateMessage(params.matriculas, params.scope),
+    formatEmailDuplicateMessage(params.emails, params.scope),
+  ].filter((message): message is string => Boolean(message));
+
+  if (!messages.length) {
+    return null;
+  }
+
+  return messages.join(" ");
+}
+
 function validateMemberFields(params: {
   fullName: string;
   matriculaRaw: string;
@@ -400,6 +459,9 @@ export async function bulkAddMembers(teamId: string, formData: FormData) {
         throw new Error(`El equipo superaria el maximo de ${MAX_TEAM_MEMBERS} participantes.`);
       }
 
+      const matriculaByEditionKey = new Map<string, string>();
+      const emailByEditionKey = new Map<string, string>();
+
       const preparedMembers = bulkMembers.map((member) => {
         const validatedMember = validateMemberFields({
           fullName: member.fullName,
@@ -425,6 +487,8 @@ export async function bulkAddMembers(teamId: string, formData: FormData) {
 
         localMatriculas.add(editionMatriculaKey);
         localEmails.add(editionEmailKey);
+        matriculaByEditionKey.set(editionMatriculaKey, validatedMember.matricula);
+        emailByEditionKey.set(editionEmailKey, validatedMember.institutionalEmail);
 
         return {
           teamId: team.id,
@@ -440,11 +504,13 @@ export async function bulkAddMembers(teamId: string, formData: FormData) {
         };
       });
 
-      if (duplicateMatriculas.size > 0) {
-        throw new Error("Matricula duplicada en el archivo.");
-      }
-      if (duplicateEmails.size > 0) {
-        throw new Error("Correo duplicado en el archivo.");
+      const duplicateInBatchMessage = formatCombinedDuplicateMessage({
+        matriculas: duplicateMatriculas,
+        emails: duplicateEmails,
+        scope: "captura",
+      });
+      if (duplicateInBatchMessage) {
+        throw new Error(duplicateInBatchMessage);
       }
 
       const editionMatriculaKeys = preparedMembers.map((member) => member.editionMatriculaKey);
@@ -463,18 +529,60 @@ export async function bulkAddMembers(teamId: string, formData: FormData) {
         },
       });
 
-      const matriculaConflicts = conflicts.filter((member) =>
-        editionMatriculaKeys.includes(member.editionMatriculaKey)
-      );
-      const emailConflicts = conflicts.filter((member) =>
-        editionEmailKeys.includes(member.editionEmailKey)
-      );
+      const conflictingMatriculas = new Set<string>();
+      const conflictingEmails = new Set<string>();
 
-      if (matriculaConflicts.length > 0) {
-        throw new Error("Al menos una matricula ya existe en esta edicion.");
+      for (const conflict of conflicts) {
+        const conflictingMatricula = matriculaByEditionKey.get(conflict.editionMatriculaKey);
+        const conflictingEmail = emailByEditionKey.get(conflict.editionEmailKey);
+
+        if (conflictingMatricula) {
+          conflictingMatriculas.add(conflictingMatricula);
+        }
+        if (conflictingEmail) {
+          conflictingEmails.add(conflictingEmail);
+        }
       }
-      if (emailConflicts.length > 0) {
-        throw new Error("Al menos un correo institucional ya existe en esta edicion.");
+
+      const responsablesInEdition = await tx.team.findMany({
+        where: { editionId: edition.id },
+        select: {
+          responsableMatricula: true,
+          responsableCorreo: true,
+        },
+      });
+
+      for (const responsable of responsablesInEdition) {
+        if (responsable.responsableMatricula) {
+          const { editionMatriculaKey } = getEditionMemberKeys(
+            edition.id,
+            responsable.responsableMatricula,
+            "placeholder@uan.edu.mx"
+          );
+          const conflictingMatricula = matriculaByEditionKey.get(editionMatriculaKey);
+          if (conflictingMatricula) {
+            conflictingMatriculas.add(conflictingMatricula);
+          }
+        }
+
+        const { editionEmailKey } = getEditionMemberKeys(
+          edition.id,
+          "PLACEHOLDER",
+          responsable.responsableCorreo
+        );
+        const conflictingEmail = emailByEditionKey.get(editionEmailKey);
+        if (conflictingEmail) {
+          conflictingEmails.add(conflictingEmail);
+        }
+      }
+
+      const duplicateInEditionMessage = formatCombinedDuplicateMessage({
+        matriculas: conflictingMatriculas,
+        emails: conflictingEmails,
+        scope: "edicion",
+      });
+      if (duplicateInEditionMessage) {
+        throw new Error(duplicateInEditionMessage);
       }
 
       const created = await tx.member.createMany({
