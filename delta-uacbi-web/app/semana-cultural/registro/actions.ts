@@ -19,8 +19,24 @@ import { redirect } from "next/navigation";
 const MATRICULA_REGEX = /^[A-Za-z0-9-]{4,32}$/;
 const allowedAnimales = new Set<string>(SEMANA_CULTURAL_ANIMALES);
 
+export type CreateTeamState = {
+  status: "idle" | "success" | "error";
+  message: string;
+  teamId: string | null;
+};
+
 function isUniqueTargetMatch(target: string[], ...expectedTokens: string[]) {
   return expectedTokens.every((token) => target.some((value) => value.includes(token)));
+}
+
+function isRedirectError(error: unknown): error is { digest: string } {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "digest" in error &&
+    typeof error.digest === "string" &&
+    error.digest.startsWith("NEXT_REDIRECT")
+  );
 }
 
 async function findExistingTeamByLeaderOrCorreo(params: {
@@ -42,7 +58,7 @@ async function findExistingTeamByLeaderOrCorreo(params: {
   });
 }
 
-export async function createTeam(formData: FormData) {
+async function createTeamInternal(formData: FormData): Promise<{ teamId: string }> {
   const edition = await getActiveEdition();
   if (!edition) {
     throw new Error("No hay una edicion activa.");
@@ -68,15 +84,43 @@ export async function createTeam(formData: FormData) {
   ).trim();
   const responsableCorreo = normalizeInstitutionalEmail(sessionUser.email);
 
-  if (
-    !responsableAcademicUnitRaw ||
-    !animal ||
-    !responsableNombre ||
-    !responsableTelefono ||
-    !responsableMatriculaRaw ||
-    !responsableGradoGrupo
-  ) {
-    throw new Error("Faltan campos obligatorios.");
+  console.log("[createTeam] required fields", {
+    hasAnimal: Boolean(animal),
+    hasResponsableNombre: Boolean(responsableNombre),
+    hasResponsableTelefono: Boolean(responsableTelefono),
+    hasResponsableMatricula: Boolean(responsableMatriculaRaw),
+    hasResponsableGradoGrupo: Boolean(responsableGradoGrupo),
+    hasResponsableAcademicUnit: Boolean(responsableAcademicUnitRaw),
+    hasResponsableAcademicProgram: Boolean(responsableAcademicProgramRaw),
+    hasSessionEmail: Boolean(sessionUser?.email),
+  });
+
+  const missingFields: string[] = [];
+
+  if (!animal) {
+    missingFields.push("animal");
+  }
+  if (!responsableNombre) {
+    missingFields.push("nombre del responsable");
+  }
+  if (!responsableTelefono) {
+    missingFields.push("telefono");
+  }
+  if (!responsableMatriculaRaw) {
+    missingFields.push("matricula");
+  }
+  if (!responsableGradoGrupo) {
+    missingFields.push("grado y grupo");
+  }
+  if (!responsableAcademicUnitRaw) {
+    missingFields.push("unidad academica");
+  }
+  if (!responsableAcademicProgramRaw) {
+    missingFields.push("carrera");
+  }
+
+  if (missingFields.length > 0) {
+    throw new Error(`Faltan campos obligatorios: ${missingFields.join(", ")}`);
   }
 
   const responsableAcademicUnit = resolveAcademicUnit(responsableAcademicUnitRaw);
@@ -132,7 +176,9 @@ export async function createTeam(formData: FormData) {
   });
 
   if (existingTeam) {
-    redirect(`/semana-cultural/equipos/${existingTeam.id}`);
+    return {
+      teamId: existingTeam.id,
+    };
   }
 
   const teamWithAnimal = await db.team.findFirst({
@@ -206,7 +252,9 @@ export async function createTeam(formData: FormData) {
     revalidatePath("/semana-cultural/resultados");
     revalidatePath("/semana-cultural/registro");
 
-    redirect(`/semana-cultural/equipos/${team.id}`);
+    return {
+      teamId: team.id,
+    };
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === "P2011") {
@@ -240,7 +288,9 @@ export async function createTeam(formData: FormData) {
         });
 
         if (teamByLeader) {
-          redirect(`/semana-cultural/equipos/${teamByLeader.id}`);
+          return {
+            teamId: teamByLeader.id,
+          };
         }
 
         throw new Error("Ya registraste un equipo en esta edicion.");
@@ -259,7 +309,9 @@ export async function createTeam(formData: FormData) {
         });
 
         if (teamByCorreo) {
-          redirect(`/semana-cultural/equipos/${teamByCorreo.id}`);
+          return {
+            teamId: teamByCorreo.id,
+          };
         }
 
         throw new Error("Ya existe un equipo registrado con este correo en esta edicion.");
@@ -300,5 +352,34 @@ export async function createTeam(formData: FormData) {
     }
 
     throw new Error("No se pudo registrar el equipo. Intentalo nuevamente.");
+  }
+}
+
+export async function createTeam(formData: FormData) {
+  const { teamId } = await createTeamInternal(formData);
+  redirect(`/semana-cultural/equipos/${teamId}`);
+}
+
+export async function createTeamWithState(
+  _prevState: CreateTeamState,
+  formData: FormData
+): Promise<CreateTeamState> {
+  try {
+    const { teamId } = await createTeamInternal(formData);
+    return {
+      status: "success",
+      message: "Equipo registrado correctamente.",
+      teamId,
+    };
+  } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "No se pudo registrar el equipo.",
+      teamId: null,
+    };
   }
 }

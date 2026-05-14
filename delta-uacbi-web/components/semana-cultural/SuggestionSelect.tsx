@@ -52,6 +52,8 @@ export function SuggestionSelect({
     setSelectedValue(matchedValue);
   }
 
+  const submittedValue = selectedValue || inputValue.trim();
+
   return (
     <>
       <input
@@ -63,7 +65,7 @@ export function SuggestionSelect({
         disabled={disabled}
         className={className}
       />
-      <input type="hidden" name={name} value={selectedValue} />
+      <input type="hidden" name={name} value={submittedValue} />
       <datalist id={listId}>
         {options.map((option) => (
           <option key={option.value} value={option.label} />
