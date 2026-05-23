@@ -73,6 +73,40 @@ enum ScoreMovementType {
   RESTA
 }
 
+enum TicketEventStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+  CANCELLED
+}
+
+enum TicketOrderStatus {
+  PENDING
+  PAID
+  CANCELLED
+  EXPIRED
+  REFUNDED
+}
+
+enum DigitalTicketStatus {
+  VALID
+  USED
+  CANCELLED
+}
+
+enum TicketPaymentProvider {
+  MERCADOPAGO
+  SIMULATED
+}
+
+enum TicketScanResult {
+  VALID
+  USED
+  CANCELLED
+  INVALID
+  NOT_FOUND
+}
+
 model User {
   id        String   @id @default(cuid())
   name      String
@@ -255,4 +289,128 @@ model AuditLog {
   createdAt  DateTime @default(now())
 
   createdBy User? @relation("AuditLogCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+}
+
+model TicketEvent {
+  id          String            @id @default(cuid())
+  title       String
+  slug        String            @unique
+  description String?
+  eventDate   DateTime
+  location    String
+  imageUrl    String?
+  status      TicketEventStatus @default(DRAFT)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  ticketTypes    TicketType[]
+  orders         TicketOrder[]
+  digitalTickets DigitalTicket[]
+
+  @@index([status, eventDate])
+}
+
+model TicketType {
+  id          String   @id @default(cuid())
+  eventId     String
+  name        String
+  description String?
+  price       Decimal  @db.Decimal(10, 2)
+  quantity    Int
+  soldCount   Int      @default(0)
+  maxPerOrder Int      @default(10)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  event          TicketEvent       @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  orderItems     TicketOrderItem[]
+  digitalTickets DigitalTicket[]
+
+  @@index([eventId, isActive])
+  @@unique([eventId, name])
+}
+
+model TicketOrder {
+  id                String                @id @default(cuid())
+  publicToken       String                @unique
+  eventId           String
+  buyerName         String
+  buyerEmail        String
+  buyerPhone        String
+  totalAmount       Decimal               @db.Decimal(10, 2)
+  status            TicketOrderStatus     @default(PENDING)
+  paymentProvider   TicketPaymentProvider @default(SIMULATED)
+  providerPaymentId String?               @unique
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  event          TicketEvent       @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  items          TicketOrderItem[]
+  digitalTickets DigitalTicket[]
+
+  @@index([eventId, status])
+  @@index([buyerEmail])
+}
+
+model TicketOrderItem {
+  id           String  @id @default(cuid())
+  orderId      String
+  ticketTypeId String
+  quantity     Int
+  unitPrice    Decimal @db.Decimal(10, 2)
+  subtotal     Decimal @db.Decimal(10, 2)
+
+  order      TicketOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  ticketType TicketType  @relation(fields: [ticketTypeId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([ticketTypeId])
+  @@unique([orderId, ticketTypeId])
+}
+
+model DigitalTicket {
+  id           String            @id @default(cuid())
+  orderId      String
+  eventId      String
+  ticketTypeId String
+  folio        String            @unique
+  qrToken      String            @unique
+  status       DigitalTicketStatus @default(VALID)
+  usedAt       DateTime?
+  createdAt    DateTime          @default(now())
+
+  order      TicketOrder     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  event      TicketEvent     @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  ticketType TicketType      @relation(fields: [ticketTypeId], references: [id], onDelete: Restrict)
+  scanLogs   TicketScanLog[]
+
+  @@index([eventId, status])
+  @@index([orderId])
+}
+
+model TicketScanLog {
+  id          String           @id @default(cuid())
+  ticketId    String
+  scannedById String?
+  result      TicketScanResult
+  detail      String?
+  createdAt   DateTime         @default(now())
+
+  ticket DigitalTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+  @@index([scannedById])
+}
+
+model TicketAuditLog {
+  id         String   @id @default(cuid())
+  action     String
+  entityType String
+  entityId   String?
+  detail     String?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
 }

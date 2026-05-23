@@ -11,6 +11,7 @@ const navItems = [
   { href: "/concursos", label: "Concursos" },
   { href: "/bolsa", label: "Bolsa" },
   { href: "/semana-cultural", label: "Semana Cultural" },
+  { href: "/tickets", label: "Delta Tickets" },
 ];
 
 function cx(...classes: Array<string | false | undefined | null>) {
