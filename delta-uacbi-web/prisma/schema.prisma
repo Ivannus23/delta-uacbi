@@ -12,24 +12,32 @@ enum UserRole {
   JEFE_GRUPO
 }
 
-enum AcademicUnit {
-  UACBI
-  UAE
-}
-
-enum AcademicProgram {
-  INGENIERIA_MECANICA
-  INGENIERIA_CONTROL_COMPUTACION
-  LICENCIATURA_MATEMATICAS
-  INGENIERIA_QUIMICA
-  INGENIERIA_ELECTRONICA
-  LICENCIATURA_ENFERMERIA
+enum OrgRole {
+  ADMIN
+  STAFF
 }
 
 enum TeamStatus {
   PENDIENTE
   APROBADO
   RECHAZADO
+}
+
+enum RegistrationFeeMode {
+  FREE
+  FIXED
+}
+
+enum TeamPaymentStatus {
+  PENDING
+  PAID
+  CANCELLED
+  EXPIRED
+}
+
+enum OrganizationSubscriptionStatus {
+  ACTIVE
+  SUSPENDED
 }
 
 enum EventType {
@@ -52,12 +60,6 @@ enum RegistrationStatus {
   PENDIENTE
   APROBADA
   RECHAZADA
-}
-
-enum ScoreCategory {
-  TOPACIO
-  DIAMANTE
-  ESMERALDA
 }
 
 enum ScorePosition {
@@ -108,130 +110,274 @@ enum TicketScanResult {
 }
 
 model User {
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  role          UserRole @default(STAFF)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  assignedTeams Team[]   @relation("TeamLeader")
+
+  createdScoreLogs ScoreLog[]               @relation("ScoreLogCreatedBy")
+  createdAuditLogs AuditLog[]               @relation("AuditLogCreatedBy")
+  orgMemberships   OrganizationMembership[]
+}
+
+// Unidad academica (u otra entidad) que opera su propia Semana Cultural de forma
+// independiente. El rol de plataforma (User.role = ADMIN) sigue gobernando modulos
+// globales (ej. Delta Tickets); el acceso a una organizacion especifica vive aqui.
+model Organization {
   id        String   @id @default(cuid())
+  slug      String   @unique
   name      String
-  email     String   @unique
-  role      UserRole @default(STAFF)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  assignedTeams Team[] @relation("TeamLeader")
 
-  createdScoreLogs ScoreLog[] @relation("ScoreLogCreatedBy")
-  createdAuditLogs AuditLog[] @relation("AuditLogCreatedBy")
+  // Suscripción de plataforma (Fase D1): el dueño de Delta activa/suspende el acceso
+  // de esta organización y le asigna un precio. El cobro sigue siendo manual/fuera de
+  // banda por ahora — es dinero de la plataforma, no se relaciona con
+  // OrganizationMercadoPagoAccount (que es la cuenta propia de la organización para
+  // cobrar cuotas de inscripción de equipos).
+  subscriptionStatus      OrganizationSubscriptionStatus @default(ACTIVE)
+  subscriptionPriceAmount Decimal?                       @db.Decimal(10, 2)
+  subscriptionNotes       String?
+
+  editions           CulturalEdition[]
+  memberships        OrganizationMembership[]
+  mercadoPagoAccount OrganizationMercadoPagoAccount?
+}
+
+model OrganizationMembership {
+  id             String   @id @default(cuid())
+  userId         String
+  organizationId String
+  role           OrgRole
+  createdAt      DateTime @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+}
+
+// Cuenta de Mercado Pago que la organizacion conecto via OAuth (flujo "marketplace").
+// El dinero de las cuotas de inscripcion de equipos le llega directo a esta cuenta,
+// nunca a la de la plataforma. Los tokens se guardan cifrados (ver lib/crypto.ts) —
+// nunca en texto plano.
+model OrganizationMercadoPagoAccount {
+  id                String   @id @default(cuid())
+  organizationId    String   @unique
+  mercadoPagoUserId String
+  accessTokenEnc    String
+  refreshTokenEnc   String
+  tokenExpiresAt    DateTime
+  scope             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 }
 
 model CulturalEdition {
-  id         String   @id @default(cuid())
-  name       String
-  year       Int
-  startDate  DateTime
-  endDate    DateTime
-  isActive   Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id             String   @id @default(cuid())
+  organizationId String
+  slug           String
+  name           String
+  year           Int
+  startDate      DateTime
+  endDate        DateTime
+  isActive       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  teams      Team[]
+  // Tema visual de esta edicion (cada edicion puede verse distinta: cambia de tema cada anio).
+  themeName      String? // texto corto del badge, ej. "Carnaval Brasileno"
+  subtitle       String? // subtitulo debajo del titulo del header
+  bannerImageUrl String? // imagen de fondo del hero; si es null se usa un degradado generico de marca
+  eventLogoUrl   String? // logo principal/grande de la edicion (el "logo de la semana cultural")
+  partnerLogos   Json? // arreglo [{ url, alt }] con el/los logo(s) de unidad academica participante
+
+  // Unidad(es) academica(s) de la UAN que organizan esta edicion, por codigo del
+  // catalogo global (ver lib/academic-catalog.ts). Se declara desde la creacion de
+  // la edicion; puede ser mas de una si varias unidades se unen para organizarla.
+  organizingUnitCodes String[] @default([])
+
+  // Cuota de inscripcion de equipos para esta edicion. FIXED requiere que la
+  // organizacion tenga conectada su propia cuenta de Mercado Pago (ver
+  // OrganizationMercadoPagoAccount) — el dinero le llega directo a ella, nunca
+  // a la cuenta de la plataforma.
+  registrationFeeMode   RegistrationFeeMode @default(FREE)
+  registrationFeeAmount Decimal?            @db.Decimal(10, 2)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  teams        Team[]
+  events       Event[]
+  scoreRules   ScoreRule[]
+  scoreLogs    ScoreLog[]
+  auditLogs    AuditLog[]
+
+  teamNameOptions TeamNameOption[]
+  scoreCategories ScoreCategoryDef[]
+  teamPayments    TeamPayment[]
+
+  @@unique([organizationId, year])
+  @@unique([organizationId, slug])
+  @@index([organizationId])
+}
+
+// Catalogos configurables por edicion: cada organizador define su propia tematica
+// (nombres de equipo, categorias de puntuacion) en vez de depender de listas fijas
+// compartidas por toda la plataforma. Las unidades/carreras academicas, en cambio, son
+// un catalogo global fijo (ver lib/academic-catalog.ts) porque un mismo integrante puede
+// pertenecer a cualquier unidad academica de la UAN sin importar quien organiza la edicion.
+
+model TeamNameOption {
+  id        String @id @default(cuid())
+  editionId String
+  name      String
+  order     Int    @default(0)
+
+  edition CulturalEdition @relation(fields: [editionId], references: [id], onDelete: Cascade)
+
+  @@unique([editionId, name])
+  @@index([editionId])
+}
+
+model ScoreCategoryDef {
+  id        String  @id @default(cuid())
+  editionId String
+  code      String
+  label     String
+  colorHex  String?
+  order     Int     @default(0)
+
+  edition    CulturalEdition @relation(fields: [editionId], references: [id], onDelete: Cascade)
   events     Event[]
   scoreRules ScoreRule[]
-  scoreLogs  ScoreLog[]
 
-  @@unique([year])
+  @@unique([editionId, code])
+  @@index([editionId])
 }
 
 model Team {
-  id                  String     @id @default(cuid())
-  editionId           String
-  unidadAcademica     String // Legacy compatibility: mirrors responsableAcademicUnit when available
-  name                String // Internal compatibility: always mirrors animal
-  animal              String
-  responsableNombre   String
-  responsableTelefono String
-  responsableCorreo   String
-  responsableMatricula String?
-  responsableGradoGrupo String?
-  responsableAcademicUnit AcademicUnit?
-  responsableAcademicProgram AcademicProgram?
-  status              TeamStatus @default(PENDIENTE)
-  totalPoints         Int        @default(0)
-  leaderId            String?
-  createdAt           DateTime   @default(now())
-  updatedAt           DateTime   @updatedAt
+  id                             String     @id @default(cuid())
+  editionId                      String
+  name                           String // Internal compatibility: always mirrors animal
+  animal                         String
+  responsableNombre              String
+  responsableTelefono            String
+  responsableCorreo              String
+  responsableMatricula           String?
+  responsableGradoGrupo          String?
+  responsableAcademicUnitCode    String? // codigo del catalogo global (lib/academic-catalog.ts)
+  responsableAcademicProgramCode String? // codigo del catalogo global (lib/academic-catalog.ts)
+  status                         TeamStatus @default(PENDIENTE)
+  totalPoints                    Int        @default(0)
+  leaderId                       String?
+  createdAt                      DateTime   @default(now())
+  updatedAt                      DateTime   @updatedAt
 
-  edition       CulturalEdition    @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  edition       CulturalEdition     @relation(fields: [editionId], references: [id], onDelete: Cascade)
   members       Member[]
   registrations EventRegistration[]
   scoreLogs     ScoreLog[]
-  leader        User? @relation("TeamLeader", fields: [leaderId], references: [id], onDelete: SetNull)
+  payments      TeamPayment[]
+  leader        User?               @relation("TeamLeader", fields: [leaderId], references: [id], onDelete: SetNull)
 
-  @@index([editionId])
   @@unique([editionId, name])
   @@unique([editionId, animal])
   @@unique([editionId, leaderId])
   @@unique([editionId, responsableCorreo])
+  @@index([editionId])
 }
 
 model Member {
-  id                 String   @id @default(cuid())
-  teamId             String
-  fullName           String
-  matricula          String
-  institutionalEmail String
-  academicUnit       AcademicUnit
-  academicProgram    AcademicProgram
-  isLeader           Boolean @default(false)
-  editionMatriculaKey String @unique
-  editionEmailKey     String @unique
-  gradoGrupo         String
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                  String   @id @default(cuid())
+  teamId              String
+  fullName            String
+  matricula           String
+  institutionalEmail  String
+  academicUnitCode    String // codigo del catalogo global (lib/academic-catalog.ts)
+  academicProgramCode String // codigo del catalogo global (lib/academic-catalog.ts)
+  isLeader            Boolean  @default(false)
+  editionMatriculaKey String   @unique
+  editionEmailKey     String   @unique
+  gradoGrupo          String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   team          Team                @relation(fields: [teamId], references: [id], onDelete: Cascade)
   registrations EventRegistration[]
 
-  @@index([teamId])
   @@unique([teamId, matricula])
+  @@index([teamId])
+}
+
+// Cuota de inscripcion pagada (o en proceso de pago) por un equipo. El pago se
+// procesa contra la cuenta de Mercado Pago de la organizacion (OrganizationMercadoPagoAccount),
+// nunca la de la plataforma. Un equipo puede tener varios intentos (PENDING -> PAID,
+// o PENDING -> CANCELLED/EXPIRED con un nuevo intento despues).
+model TeamPayment {
+  id                String            @id @default(cuid())
+  editionId         String
+  teamId            String
+  publicToken       String            @unique // external_reference de Mercado Pago
+  amount            Decimal           @db.Decimal(10, 2)
+  status            TeamPaymentStatus @default(PENDING)
+  providerPaymentId String?           @unique
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  edition CulturalEdition @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  team    Team            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([editionId])
+  @@index([teamId])
 }
 
 model Event {
-  id             String        @id @default(cuid())
-  editionId      String
-  name           String
-  slug           String
-  type           EventType
-  isScored       Boolean       @default(true)
-  scoreCategory  ScoreCategory?
-  place          String
-  eventDate      DateTime
-  startTime      DateTime?
-  endTime        DateTime?
-  description    String?
-  teamCapacity   Int?
-  memberCapacity Int?
-  isVisible      Boolean       @default(true)
-  status         EventStatus   @default(BORRADOR)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  id              String      @id @default(cuid())
+  editionId       String
+  name            String
+  slug            String
+  type            EventType
+  isScored        Boolean     @default(true)
+  scoreCategoryId String?
+  place           String
+  eventDate       DateTime
+  startTime       DateTime?
+  endTime         DateTime?
+  description     String?
+  teamCapacity    Int?
+  memberCapacity  Int?
+  isVisible       Boolean     @default(true)
+  status          EventStatus @default(BORRADOR)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
 
-  edition       CulturalEdition    @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  edition       CulturalEdition     @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  scoreCategory ScoreCategoryDef?   @relation(fields: [scoreCategoryId], references: [id], onDelete: SetNull)
   registrations EventRegistration[]
   scoreLogs     ScoreLog[]
 
-  @@index([editionId])
   @@unique([editionId, slug])
+  @@index([editionId])
+  @@index([scoreCategoryId])
 }
 
 model EventRegistration {
-  id        String             @id @default(cuid())
-  eventId   String
-  teamId    String
-  memberId  String?
-  status    RegistrationStatus @default(PENDIENTE)
-  checkedIn Boolean            @default(false)
-  notes     String?
-  teamRegistrationKey   String? @unique
-  memberRegistrationKey String? @unique
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
+  id                    String             @id @default(cuid())
+  eventId               String
+  teamId                String
+  memberId              String?
+  status                RegistrationStatus @default(PENDIENTE)
+  checkedIn             Boolean            @default(false)
+  notes                 String?
+  teamRegistrationKey   String?            @unique
+  memberRegistrationKey String?            @unique
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
 
   event  Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
   team   Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
@@ -243,31 +389,33 @@ model EventRegistration {
 }
 
 model ScoreRule {
-  id        String         @id @default(cuid())
-  editionId String
-  category  ScoreCategory
-  position  ScorePosition
-  points    Int
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  id              String        @id @default(cuid())
+  editionId       String
+  scoreCategoryId String
+  position        ScorePosition
+  points          Int
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
-  edition CulturalEdition @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  edition       CulturalEdition  @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  scoreCategory ScoreCategoryDef @relation(fields: [scoreCategoryId], references: [id], onDelete: Cascade)
 
-  @@unique([editionId, category, position])
+  @@unique([editionId, scoreCategoryId, position])
+  @@index([scoreCategoryId])
 }
 
 model ScoreLog {
-  id           String            @id @default(cuid())
-  editionId    String
-  eventId      String?
-  teamId       String
-  position     ScorePosition?
-  movementType ScoreMovementType
-  points       Int
-  reason       String
-  eventPositionKey String? @unique
-  createdById  String?
-  createdAt    DateTime          @default(now())
+  id               String            @id @default(cuid())
+  editionId        String
+  eventId          String?
+  teamId           String
+  position         ScorePosition?
+  movementType     ScoreMovementType
+  points           Int
+  reason           String
+  eventPositionKey String?           @unique
+  createdById      String?
+  createdAt        DateTime          @default(now())
 
   edition   CulturalEdition @relation(fields: [editionId], references: [id], onDelete: Cascade)
   event     Event?          @relation(fields: [eventId], references: [id], onDelete: SetNull)
@@ -280,15 +428,19 @@ model ScoreLog {
 }
 
 model AuditLog {
-  id         String   @id @default(cuid())
-  action     String
-  entityType String
-  entityId   String?
-  detail     String?
+  id          String   @id @default(cuid())
+  action      String
+  entityType  String
+  entityId    String?
+  detail      String?
+  editionId   String?
   createdById String?
-  createdAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
 
-  createdBy User? @relation("AuditLogCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy User?            @relation("AuditLogCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  edition   CulturalEdition? @relation(fields: [editionId], references: [id], onDelete: SetNull)
+
+  @@index([editionId])
 }
 
 model TicketEvent {
@@ -327,8 +479,8 @@ model TicketType {
   orderItems     TicketOrderItem[]
   digitalTickets DigitalTicket[]
 
-  @@index([eventId, isActive])
   @@unique([eventId, name])
+  @@index([eventId, isActive])
 }
 
 model TicketOrder {
@@ -364,21 +516,21 @@ model TicketOrderItem {
   order      TicketOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
   ticketType TicketType  @relation(fields: [ticketTypeId], references: [id], onDelete: Restrict)
 
+  @@unique([orderId, ticketTypeId])
   @@index([orderId])
   @@index([ticketTypeId])
-  @@unique([orderId, ticketTypeId])
 }
 
 model DigitalTicket {
-  id           String            @id @default(cuid())
+  id           String              @id @default(cuid())
   orderId      String
   eventId      String
   ticketTypeId String
-  folio        String            @unique
-  qrToken      String            @unique
+  folio        String              @unique
+  qrToken      String              @unique
   status       DigitalTicketStatus @default(VALID)
   usedAt       DateTime?
-  createdAt    DateTime          @default(now())
+  createdAt    DateTime            @default(now())
 
   order      TicketOrder     @relation(fields: [orderId], references: [id], onDelete: Cascade)
   event      TicketEvent     @relation(fields: [eventId], references: [id], onDelete: Restrict)

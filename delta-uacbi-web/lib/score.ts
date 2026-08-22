@@ -1,21 +1,20 @@
 import { db } from "@/lib/db";
 import {
   Prisma,
-  ScoreCategory,
   ScoreMovementType,
   ScorePosition,
 } from "@prisma/client";
 
 export async function getPointsForRule(
   editionId: string,
-  category: ScoreCategory,
+  scoreCategoryId: string,
   position: ScorePosition
 ) {
   return db.scoreRule.findUnique({
     where: {
-      editionId_category_position: {
+      editionId_scoreCategoryId_position: {
         editionId,
-        category,
+        scoreCategoryId,
         position,
       },
     },
@@ -30,6 +29,10 @@ export async function recalculateTeamPointsWithClient(
   client: Prisma.TransactionClient | typeof db,
   teamId: string
 ) {
+  // Bloquea la fila del equipo antes de leer/sumar para evitar "lost update"
+  // cuando dos asignaciones de puntos concurrentes recalculan el mismo equipo.
+  await client.$queryRaw`SELECT id FROM "Team" WHERE id = ${teamId} FOR UPDATE`;
+
   const logs = await client.scoreLog.findMany({
     where: { teamId },
     select: {

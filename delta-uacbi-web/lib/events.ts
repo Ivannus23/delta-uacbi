@@ -1,20 +1,21 @@
 import { db } from "@/lib/db";
 import { getActiveEdition } from "@/lib/semana-cultural";
 
-export async function getActiveEditionWithEvents() {
-  const edition = await getActiveEdition();
+export async function getActiveEditionWithEvents(organizationId: string) {
+  const edition = await getActiveEdition(organizationId);
   if (!edition) return null;
 
   const events = await db.event.findMany({
     where: { editionId: edition.id },
     include: {
+      scoreCategory: true,
       registrations: {
         include: {
           team: {
             include: {
               members: {
                 select: {
-                  academicUnit: true,
+                  academicUnitCode: true,
                 },
               },
             },
@@ -32,8 +33,8 @@ export async function getActiveEditionWithEvents() {
   };
 }
 
-export async function getAvailableTeams() {
-  const edition = await getActiveEdition();
+export async function getAvailableTeams(organizationId: string) {
+  const edition = await getActiveEdition(organizationId);
   if (!edition) return [];
 
   return db.team.findMany({
@@ -44,7 +45,7 @@ export async function getAvailableTeams() {
     include: {
       members: {
         select: {
-          academicUnit: true,
+          academicUnitCode: true,
         },
       },
     },

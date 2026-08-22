@@ -33,6 +33,7 @@ type MercadoPagoCreatePreferenceInput = {
   successUrl: string;
   pendingUrl: string;
   failureUrl: string;
+  accessToken?: string;
 };
 
 export type MercadoPagoPreferenceResult = {
@@ -57,8 +58,12 @@ type MercadoPagoApiErrorBody = {
   cause?: Array<{ description?: string }>;
 };
 
-async function mercadoPagoRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const accessToken = getMercadoPagoAccessToken();
+async function mercadoPagoRequest<T>(
+  path: string,
+  init?: RequestInit,
+  accessTokenOverride?: string
+): Promise<T> {
+  const accessToken = accessTokenOverride || getMercadoPagoAccessToken();
   if (!accessToken) {
     throw new MercadoPagoError("Mercado Pago no esta configurado.", 503);
   }
@@ -121,10 +126,14 @@ export async function createMercadoPagoPreference(
     },
   };
 
-  const response = await mercadoPagoRequest<ResponseShape>("/checkout/preferences", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  const response = await mercadoPagoRequest<ResponseShape>(
+    "/checkout/preferences",
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+    input.accessToken
+  );
 
   if (!response.id || !response.init_point) {
     throw new MercadoPagoError("No se pudo iniciar el checkout con Mercado Pago.", 502);
@@ -137,15 +146,17 @@ export async function createMercadoPagoPreference(
   };
 }
 
-export async function getMercadoPagoPayment(paymentId: string | number) {
+export async function getMercadoPagoPayment(paymentId: string | number, options?: { accessToken?: string }) {
   const normalizedId = String(paymentId || "").trim();
   if (!normalizedId) {
     throw new MercadoPagoError("El identificador de pago es invalido.", 400);
   }
 
-  return mercadoPagoRequest<MercadoPagoPayment>(`/v1/payments/${encodeURIComponent(normalizedId)}`, {
-    method: "GET",
-  });
+  return mercadoPagoRequest<MercadoPagoPayment>(
+    `/v1/payments/${encodeURIComponent(normalizedId)}`,
+    { method: "GET" },
+    options?.accessToken
+  );
 }
 
 function parseSignatureHeader(signatureHeader: string | null) {

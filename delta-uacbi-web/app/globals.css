@@ -3,6 +3,32 @@
 @tailwind utilities;
 
 /* =========================================================
+   Marca Delta UACBI: paleta + tipografia (tokens Tailwind v4)
+   ========================================================= */
+@theme {
+  --color-brand-teal: #0a757c;
+  --color-brand-teal-dark: #0f4950;
+  --color-brand-purple: #442776;
+  --color-brand-green: #95c11f;
+  --color-brand-magenta: #c02364;
+  --color-brand-orange: #e28c22;
+
+  --color-primary: var(--color-brand-teal);
+  --color-primary-foreground: #fdfdfd;
+  --color-accent: var(--color-brand-magenta);
+  --color-accent-foreground: #fdfdfd;
+
+  --color-avisos: var(--color-brand-teal);
+  --color-proyectos: var(--color-brand-purple);
+  --color-concursos: var(--color-brand-orange);
+  --color-bolsa: var(--color-brand-green);
+  --color-tickets: var(--color-brand-magenta);
+
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-space-grotesk);
+}
+
+/* =========================================================
    Tokens (shadcn compatible) + dark
    ========================================================= */
 :root {
@@ -32,8 +58,13 @@
 body {
   background: hsl(var(--background));
   color: hsl(var(--foreground));
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.font-display {
+  font-family: var(--font-display), var(--font-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
 /* Container utility (sin @apply) */
@@ -44,14 +75,14 @@ body {
   padding-right: 1rem;
 }
 
-/* Fondo tipo nextjs.org */
+/* Fondo ambiental con la paleta de marca Delta UACBI */
 .bg-next {
   position: relative;
   isolation: isolate;
   background:
-    radial-gradient(900px 500px at 20% 10%, rgba(124, 58, 237, .20), transparent 60%),
-    radial-gradient(900px 500px at 80% 20%, rgba(56, 189, 248, .18), transparent 55%),
-    radial-gradient(900px 500px at 50% 90%, rgba(34, 197, 94, .10), transparent 60%);
+    radial-gradient(900px 500px at 20% 10%, rgba(68, 39, 118, .22), transparent 60%),
+    radial-gradient(900px 500px at 80% 20%, rgba(10, 117, 124, .20), transparent 55%),
+    radial-gradient(900px 500px at 50% 90%, rgba(192, 35, 100, .10), transparent 60%);
 }
 
 .bg-next::before {
@@ -100,3 +131,10 @@ body {
     0 0 0 1px rgba(255,255,255,.06) inset,
     0 20px 60px rgba(0,0,0,.35);
 }
+
+/* Acentos de color por modulo sobre .card-next (mayor especificidad que .card-next sola) */
+.card-next.accent-avisos { border-top-color: var(--color-avisos); border-top-width: 2px; }
+.card-next.accent-proyectos { border-top-color: var(--color-proyectos); border-top-width: 2px; }
+.card-next.accent-concursos { border-top-color: var(--color-concursos); border-top-width: 2px; }
+.card-next.accent-bolsa { border-top-color: var(--color-bolsa); border-top-width: 2px; }
+.card-next.accent-tickets { border-top-color: var(--color-tickets); border-top-width: 2px; }

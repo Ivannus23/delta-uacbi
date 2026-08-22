@@ -4,6 +4,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo, useState } from "react";
+import { Menu, X } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { cx } from "@/components/ui/utils";
 
 const navItems = [
   { href: "/avisos", label: "Avisos" },
@@ -13,10 +16,6 @@ const navItems = [
   { href: "/semana-cultural", label: "Semana Cultural" },
   { href: "/tickets", label: "Delta Tickets" },
 ];
-
-function cx(...classes: Array<string | false | undefined | null>) {
-  return classes.filter(Boolean).join(" ");
-}
 
 export function Navbar() {
   const pathname = usePathname();
@@ -42,7 +41,7 @@ export function Navbar() {
               priority
             />
             <div className="min-w-0">
-              <div className="truncate font-semibold leading-tight tracking-tight">
+              <div className="font-display truncate font-semibold leading-tight tracking-tight">
                 Delta UACBI
               </div>
               <div className="truncate text-xs text-muted-foreground">Comité académico</div>
@@ -51,25 +50,23 @@ export function Navbar() {
 
           <nav className="hidden items-center gap-2 md:flex">
             {navItems.map((item) => (
-              <Link
+              <Button
                 key={item.href}
                 href={item.href}
-                className={cx(
-                  "btn-sheen rounded-full border px-3 py-1 text-sm",
-                  "border-white/10 bg-white/5 hover:bg-white/10",
-                  isActive(item.href)
-                    ? "text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
+                variant={isActive(item.href) ? "secondary" : "ghost"}
+                size="sm"
+                className={isActive(item.href) ? "text-foreground" : undefined}
               >
                 {item.label}
-              </Link>
+              </Button>
             ))}
           </nav>
 
-          <button
+          <Button
             type="button"
-            className="btn-sheen inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-muted-foreground hover:bg-white/10 hover:text-foreground md:hidden"
+            variant="secondary"
+            size="icon"
+            className="md:hidden"
             aria-label="Abrir menú"
             aria-expanded={open}
             onClick={() =>
@@ -79,15 +76,8 @@ export function Navbar() {
             }
           >
             <span className="sr-only">Menú</span>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path
-                d="M4 7h16M4 12h16M4 17h16"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-            </svg>
-          </button>
+            {open ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+          </Button>
         </div>
 
         {open ? (

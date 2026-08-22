@@ -1,70 +1,57 @@
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
-import { HeaderSemana } from "@/components/semana-cultural/HeaderSemana";
+import { db } from "@/lib/db";
 
-export default function SemanaCulturalPage() {
+export const revalidate = 60;
+
+export default async function SemanaCulturalDirectoryPage() {
+  const organizations = await db.organization.findMany({
+    include: {
+      editions: {
+        where: { isActive: true },
+        take: 1,
+      },
+    },
+    orderBy: { name: "asc" },
+  });
+
   return (
     <>
       <Navbar />
+      <main className="container py-14">
+        <p className="text-sm text-muted-foreground">Semana Cultural</p>
+        <h1 className="mt-3 text-4xl font-semibold tracking-tight">Elige tu organizacion</h1>
+        <p className="mt-4 max-w-2xl text-muted-foreground">
+          Cada unidad academica administra su propia Semana Cultural: equipos, actividades, ranking
+          y resultados en vivo.
+        </p>
 
-      <main className="container py-12">
-        <HeaderSemana variant="hero" />
-
-        <section className="card-next rounded-3xl p-8">
-          <h2 className="text-3xl font-semibold tracking-tight">Bienvenidos al modulo oficial</h2>
-
-          <p className="mt-4 max-w-3xl text-muted-foreground leading-7">
-            Aqui podras registrar equipos, consultar el cronograma, visualizar el ranking general y
-            seguir las actividades de la Semana Cultural.
-          </p>
-
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link
-              href="/semana-cultural/registro"
-              className="btn-sheen rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
-            >
-              Registrar equipo
-            </Link>
-
-            <Link
-              href="/semana-cultural/mi-equipo"
-              className="btn-sheen rounded-full border border-white/10 px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
-            >
-              Mi equipo
-            </Link>
-
-            <Link
-              href="/semana-cultural/ranking"
-              className="btn-sheen rounded-full border border-white/10 px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
-            >
-              Ver ranking
-            </Link>
-
-            <Link
-              href="/semana-cultural/cronograma"
-              className="btn-sheen rounded-full border border-white/10 px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
-            >
-              Ver cronograma
-            </Link>
-
-            <Link
-              href="/semana-cultural/resultados"
-              className="btn-sheen rounded-full border border-white/10 px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
-            >
-              Resultados en vivo
-            </Link>
-
-            <Link
-              href="/semana-cultural/staff"
-              className="btn-sheen rounded-full border border-white/10 px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
-            >
-              Panel staff
-            </Link>
-          </div>
-        </section>
+        <div className="mt-8 grid gap-4 sm:grid-cols-2">
+          {organizations.length ? (
+            organizations.map((org) => (
+              <Link
+                key={org.id}
+                href={`/semana-cultural/${org.slug}`}
+                className="card-next rounded-2xl p-6"
+              >
+                <h2 className="text-lg font-semibold">{org.name}</h2>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {org.editions[0] ? org.editions[0].name : "Sin edicion activa todavia"}
+                </p>
+                <p className="mt-4 text-xs text-muted-foreground">Entrar →</p>
+              </Link>
+            ))
+          ) : (
+            <div className="card-next rounded-2xl p-6">
+              <h2 className="text-lg font-semibold">Aun no hay organizaciones</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Cuando se cree una organizacion, aparecera aqui.
+              </p>
+            </div>
+          )}
+        </div>
       </main>
-
       <Footer />
     </>
   );

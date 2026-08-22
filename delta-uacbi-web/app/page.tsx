@@ -1,8 +1,11 @@
-import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { sanityClient } from "@/lib/sanity/client";
 import { homeQuery } from "@/lib/sanity/queries";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
 export const revalidate = 3600;
 
 
@@ -66,26 +69,25 @@ function SectionHeader({
   return (
     <div className="flex items-end justify-between gap-4">
       <div>
-        <h2 className="text-xl font-semibold">{title}</h2>
+        <h2 className="font-display text-xl font-semibold">{title}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
       </div>
-      <Link
-        href={href}
-        className="btn-sheen rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm text-muted-foreground hover:bg-white/10 hover:text-foreground"
-      >
+      <Button href={href} variant="ghost" size="sm" iconRight={<ArrowRight className="h-3.5 w-3.5" />}>
         Ver todo
-      </Link>
+      </Button>
     </div>
   );
 }
 
 function EmptyCard({ title, desc, href }: { title: string; desc: string; href: string }) {
   return (
-    <Link href={href} className="card-next rounded-2xl p-6">
+    <Card href={href} variant="item">
       <h3 className="text-lg font-semibold">{title}</h3>
       <p className="mt-2 text-sm text-muted-foreground">{desc}</p>
-      <p className="mt-4 text-xs text-muted-foreground">Ir →</p>
-    </Link>
+      <p className="mt-4 flex items-center gap-1 text-xs text-muted-foreground">
+        Ir <ArrowRight className="h-3 w-3" />
+      </p>
+    </Card>
   );
 }
 
@@ -109,9 +111,11 @@ export default async function HomePage() {
       <main className="container py-14">
         {/* HERO */}
         <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-black/20 p-8 sm:p-12">
-          <p className="text-sm text-muted-foreground">Comité académico · UACBI</p>
+          <Badge variant="tickets" dot>
+            Comité académico · UACBI
+          </Badge>
 
-          <h1 className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">
+          <h1 className="font-display mt-4 text-4xl font-semibold tracking-tight sm:text-5xl">
             Delta UACBI
           </h1>
 
@@ -121,27 +125,26 @@ export default async function HomePage() {
           </p>
 
           <div className="mt-7 flex flex-wrap gap-3">
-            <Link
-              href="/proyectos"
-              className="btn-sheen rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
-            >
+            <Button href="/proyectos" variant="primary" size="lg">
               Ver proyectos
-            </Link>
-            <Link
-              href="/bolsa"
-              className="btn-sheen rounded-full border border-white/10 px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
-            >
+            </Button>
+            <Button href="/bolsa" variant="outline" size="lg">
               Bolsa de trabajo
-            </Link>
+            </Button>
           </div>
 
           <div className="mt-8 grid gap-3 sm:grid-cols-3">
-            {[
-              ["Enfoque", "Académico primero"],
-              ["Para", "Estudiantes y empresas"],
-              ["Stack", "Next.js + Sanity"],
-            ].map(([k, v]) => (
-              <div key={k} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            {(
+              [
+                ["Enfoque", "Académico primero", "border-t-avisos"],
+                ["Para", "Estudiantes y empresas", "border-t-proyectos"],
+                ["Stack", "Comunidad UACBI", "border-t-bolsa"],
+              ] as const
+            ).map(([k, v, accentClass]) => (
+              <div
+                key={k}
+                className={`rounded-2xl border border-white/10 border-t-2 ${accentClass} bg-white/5 p-4`}
+              >
                 <p className="text-xs text-muted-foreground">{k}</p>
                 <p className="mt-1 font-medium">{v}</p>
               </div>
@@ -162,18 +165,10 @@ export default async function HomePage() {
             <div className="mt-5 grid gap-3">
               {notices.length ? (
                 notices.map((n) => (
-                  <Link
-                    key={n._id}
-                    href={`/avisos/${n.slug}`}
-                    className="rounded-2xl border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition"
-                  >
+                  <Card key={n._id} href={`/avisos/${n.slug}`} variant="item">
                     <div className="flex items-start justify-between gap-3">
                       <p className="font-medium leading-snug">{n.title}</p>
-                      {n.pinned ? (
-                        <span className="text-xs rounded-full border border-white/10 px-2 py-1 text-muted-foreground">
-                          Fijado
-                        </span>
-                      ) : null}
+                      {n.pinned ? <Badge variant="avisos">Fijado</Badge> : null}
                     </div>
                     <div className="mt-2 text-xs text-muted-foreground">
                       {[n.category, fmtDate(n.publishedAt)].filter(Boolean).join(" · ")}
@@ -181,7 +176,7 @@ export default async function HomePage() {
                     {n.excerpt ? (
                       <p className="mt-2 text-sm text-muted-foreground line-clamp-2">{n.excerpt}</p>
                     ) : null}
-                  </Link>
+                  </Card>
                 ))
               ) : (
                 <EmptyCard
@@ -204,18 +199,10 @@ export default async function HomePage() {
             <div className="mt-5 grid gap-3">
               {projects.length ? (
                 projects.map((p) => (
-                  <Link
-                    key={p._id}
-                    href={`/proyectos/${p.slug}`}
-                    className="rounded-2xl border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition"
-                  >
+                  <Card key={p._id} href={`/proyectos/${p.slug}`} variant="item">
                     <div className="flex items-start justify-between gap-3">
                       <p className="font-medium leading-snug">{p.title}</p>
-                      {p.area ? (
-                        <span className="text-xs rounded-full border border-white/10 px-2 py-1 text-muted-foreground">
-                          {p.area}
-                        </span>
-                      ) : null}
+                      {p.area ? <Badge variant="proyectos">{p.area}</Badge> : null}
                     </div>
                     <div className="mt-2 text-xs text-muted-foreground">
                       {[p.stack?.slice(0, 4).join(" · "), fmtDate(p.publishedAt)]
@@ -225,7 +212,7 @@ export default async function HomePage() {
                     {p.excerpt ? (
                       <p className="mt-2 text-sm text-muted-foreground line-clamp-2">{p.excerpt}</p>
                     ) : null}
-                  </Link>
+                  </Card>
                 ))
               ) : (
                 <EmptyCard
@@ -248,18 +235,10 @@ export default async function HomePage() {
             <div className="mt-5 grid gap-3">
               {contests.length ? (
                 contests.map((c) => (
-                  <Link
-                    key={c._id}
-                    href={`/concursos/${c.slug}`}
-                    className="rounded-2xl border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition"
-                  >
+                  <Card key={c._id} href={`/concursos/${c.slug}`} variant="item">
                     <div className="flex items-start justify-between gap-3">
                       <p className="font-medium leading-snug">{c.title}</p>
-                      {c.status ? (
-                        <span className="text-xs rounded-full border border-white/10 px-2 py-1 text-muted-foreground">
-                          {c.status}
-                        </span>
-                      ) : null}
+                      {c.status ? <Badge variant="concursos">{c.status}</Badge> : null}
                     </div>
                     <div className="mt-2 text-xs text-muted-foreground">
                       {c.deadline ? `Límite: ${fmtDate(c.deadline)}` : "Sin fecha límite"}
@@ -267,7 +246,7 @@ export default async function HomePage() {
                     {c.excerpt ? (
                       <p className="mt-2 text-sm text-muted-foreground line-clamp-2">{c.excerpt}</p>
                     ) : null}
-                  </Link>
+                  </Card>
                 ))
               ) : (
                 <EmptyCard
@@ -290,18 +269,10 @@ export default async function HomePage() {
             <div className="mt-5 grid gap-3">
               {jobs.length ? (
                 jobs.map((j) => (
-                  <Link
-                    key={j._id}
-                    href={`/bolsa/${j.slug}`}
-                    className="rounded-2xl border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition"
-                  >
+                  <Card key={j._id} href={`/bolsa/${j.slug}`} variant="item">
                     <div className="flex items-start justify-between gap-3">
                       <p className="font-medium leading-snug">{j.title}</p>
-                      {j.type ? (
-                        <span className="text-xs rounded-full border border-white/10 px-2 py-1 text-muted-foreground">
-                          {j.type}
-                        </span>
-                      ) : null}
+                      {j.type ? <Badge variant="bolsa">{j.type}</Badge> : null}
                     </div>
                     <div className="mt-2 text-xs text-muted-foreground">
                       {[j.company, j.location, fmtDate(j.publishedAt)].filter(Boolean).join(" · ")}
@@ -309,7 +280,7 @@ export default async function HomePage() {
                     <p className="mt-2 text-sm text-muted-foreground line-clamp-2">
                       {j.location ? `Ubicación: ${j.location}` : "Ver detalles"}
                     </p>
-                  </Link>
+                  </Card>
                 ))
               ) : (
                 <EmptyCard

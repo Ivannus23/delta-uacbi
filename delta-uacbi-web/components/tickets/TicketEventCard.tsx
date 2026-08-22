@@ -1,6 +1,8 @@
-import Link from "next/link";
 import { TicketEvent, TicketType } from "@prisma/client";
 import { formatTicketDate, formatTicketMoney } from "@/lib/tickets/format";
+import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 
 type TicketEventWithTypes = TicketEvent & {
   ticketTypes: TicketType[];
@@ -16,12 +18,10 @@ export function TicketEventCard({ event }: TicketEventCardProps) {
     : null;
 
   return (
-    <article className="card-next rounded-3xl p-6">
+    <Card variant="surface" className="accent-tickets">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <h3 className="text-2xl font-semibold">{event.title}</h3>
-        <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-muted-foreground">
-          {event.status}
-        </span>
+        <Badge variant="tickets">{event.status}</Badge>
       </div>
 
       <p className="mt-2 text-sm text-muted-foreground">{event.description || "Sin descripcion."}</p>
@@ -43,13 +43,10 @@ export function TicketEventCard({ event }: TicketEventCardProps) {
       </div>
 
       <div className="mt-5">
-        <Link
-          href={`/tickets/eventos/${event.id}`}
-          className="rounded-full border border-white/10 px-4 py-2 text-sm text-muted-foreground hover:bg-white/10 hover:text-foreground"
-        >
+        <Button href={`/tickets/eventos/${event.id}`} variant="outline" size="md">
           Ver evento
-        </Link>
+        </Button>
       </div>
-    </article>
+    </Card>
   );
 }

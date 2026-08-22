@@ -1,6 +1,8 @@
-import Link from "next/link";
 import { DigitalTicketStatus, TicketOrderStatus } from "@prisma/client";
 import { formatTicketDate, formatTicketMoney } from "@/lib/tickets/format";
+import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 
 type TicketOrderSummaryProps = {
   order: {
@@ -47,17 +49,15 @@ function money(value: number | { toString(): string }) {
 
 export function TicketOrderSummary({ order }: TicketOrderSummaryProps) {
   return (
-    <section className="card-next rounded-3xl p-6">
+    <Card variant="surface" className="accent-tickets">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Orden Delta Tickets</p>
-          <h1 className="mt-2 text-3xl font-semibold">Orden de compra</h1>
+          <Badge variant="tickets" dot>Orden Delta Tickets</Badge>
+          <h1 className="font-display mt-3 text-3xl font-semibold">Orden de compra</h1>
           <p className="mt-1 text-xs text-muted-foreground break-all">Token: {order.publicToken}</p>
           <p className="mt-2 text-sm text-muted-foreground">Creada el {formatTicketDate(order.createdAt)}</p>
         </div>
-        <span className="rounded-full border border-white/10 px-4 py-2 text-xs text-muted-foreground">
-          Estado: {order.status}
-        </span>
+        <Badge variant="tickets">Estado: {order.status}</Badge>
       </div>
 
       <div className="mt-6 grid gap-3 text-sm text-muted-foreground md:grid-cols-2">
@@ -123,12 +123,9 @@ export function TicketOrderSummary({ order }: TicketOrderSummaryProps) {
                       Folio: {ticket.folio} | Estado: {ticket.status}
                     </p>
                   </div>
-                  <Link
-                    href={`/tickets/boleto/${encodeURIComponent(ticket.qrToken)}`}
-                    className="rounded-full border border-white/10 px-3 py-1 text-xs text-muted-foreground hover:text-foreground"
-                  >
+                  <Button href={`/tickets/boleto/${encodeURIComponent(ticket.qrToken)}`} variant="ghost" size="sm">
                     Ver boleto
-                  </Link>
+                  </Button>
                 </div>
               ))
             ) : (
@@ -137,7 +134,7 @@ export function TicketOrderSummary({ order }: TicketOrderSummaryProps) {
           </div>
         </div>
       ) : null}
-    </section>
+    </Card>
   );
 }
 

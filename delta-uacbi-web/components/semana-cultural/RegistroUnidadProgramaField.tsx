@@ -1,41 +1,41 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type { AcademicUnit } from "@/lib/academic-catalog";
 
-const UAE_PROGRAM_VALUE = "LICENCIATURA_ENFERMERIA";
-
-const UACBI_PROGRAM_OPTIONS = [
-  { value: "INGENIERIA_MECANICA", label: "Ingenieria Mecanica" },
-  {
-    value: "INGENIERIA_CONTROL_COMPUTACION",
-    label: "Ingenieria en Control y Computacion",
-  },
-  { value: "LICENCIATURA_MATEMATICAS", label: "Licenciatura en Matematicas" },
-  { value: "INGENIERIA_QUIMICA", label: "Ingenieria Quimica" },
-  { value: "INGENIERIA_ELECTRONICA", label: "Ingenieria Electronica" },
-] as const;
+export type UnitOption = AcademicUnit;
 
 type RegistroUnidadProgramaFieldProps = {
+  units: UnitOption[];
   unidadName: string;
   programName: string;
   unidadLabel?: string;
   programLabel?: string;
-  defaultUnidad?: "UAE" | "UACBI";
+  defaultUnitCode?: string;
 };
 
 export function RegistroUnidadProgramaField({
+  units,
   unidadName,
   programName,
   unidadLabel = "Unidad academica",
   programLabel = "Carrera / programa educativo",
-  defaultUnidad = "UAE",
+  defaultUnitCode,
 }: RegistroUnidadProgramaFieldProps) {
-  const [unidadAcademica, setUnidadAcademica] = useState<"UAE" | "UACBI">(defaultUnidad);
-
-  const defaultProgram = useMemo(
-    () => UACBI_PROGRAM_OPTIONS[0]?.value ?? "INGENIERIA_MECANICA",
-    []
+  const [unitCode, setUnitCode] = useState(defaultUnitCode ?? units[0]?.code ?? "");
+  const selectedUnit = useMemo(
+    () => units.find((unit) => unit.code === unitCode) ?? null,
+    [units, unitCode]
   );
+  const programs = selectedUnit?.programs ?? [];
+
+  if (!units.length) {
+    return (
+      <div className="sm:col-span-2 rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-amber-100">
+        El organizador aún no configuró unidades académicas para esta edición.
+      </div>
+    );
+  }
 
   return (
     <>
@@ -43,35 +43,38 @@ export function RegistroUnidadProgramaField({
         <label className="mb-2 block text-sm text-muted-foreground">{unidadLabel}</label>
         <select
           name={unidadName}
-          value={unidadAcademica}
-          onChange={(event) => setUnidadAcademica(event.target.value as "UAE" | "UACBI")}
+          value={unitCode}
+          onChange={(event) => setUnitCode(event.target.value)}
           className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
           required
         >
-          <option value="UAE">UAE</option>
-          <option value="UACBI">UACBI</option>
+          {units.map((unit) => (
+            <option key={unit.code} value={unit.code}>
+              {unit.label}
+            </option>
+          ))}
         </select>
       </div>
 
-      <div>
+      <div key={unitCode}>
         <label className="mb-2 block text-sm text-muted-foreground">{programLabel}</label>
-        {unidadAcademica === "UAE" ? (
+        {programs.length <= 1 ? (
           <>
-            <input type="hidden" name={programName} value={UAE_PROGRAM_VALUE} />
+            <input type="hidden" name={programName} value={programs[0]?.code ?? ""} />
             <div className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-foreground">
-              Licenciatura en Enfermeria
+              {programs[0]?.label ?? "Sin carreras configuradas"}
             </div>
           </>
         ) : (
           <select
             name={programName}
-            defaultValue={defaultProgram}
+            defaultValue={programs[0]?.code ?? ""}
             className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
             required
           >
-            {UACBI_PROGRAM_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
+            {programs.map((program) => (
+              <option key={program.code} value={program.code}>
+                {program.label}
               </option>
             ))}
           </select>

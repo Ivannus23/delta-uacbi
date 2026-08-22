@@ -1,17 +1,19 @@
 "use client";
 
 import { FormEvent, useActionState, useMemo, useRef, useState } from "react";
+import type { UnitOption } from "./RegistroUnidadProgramaField";
 
 type MemberDraft = {
   fullName: string;
   matricula: string;
   institutionalEmail: string;
   gradoGrupo: string;
-  academicUnit: "UAE" | "UACBI";
-  academicProgram: string;
+  academicUnitCode: string;
+  academicProgramCode: string;
 };
 
 type MembersSpreadsheetProps = {
+  units: UnitOption[];
   remainingSlots: number;
   maxTeamMembers: number;
   action: (
@@ -21,22 +23,6 @@ type MembersSpreadsheetProps = {
 };
 
 const EMAIL_REGEX = /^[a-z0-9._%+-]+@uan\.edu\.mx$/i;
-
-const UACBI_PROGRAM_OPTIONS = [
-  { value: "INGENIERIA_MECANICA", label: "Ingenieria Mecanica" },
-  {
-    value: "INGENIERIA_CONTROL_COMPUTACION",
-    label: "Ingenieria en Control y Computacion",
-  },
-  { value: "LICENCIATURA_MATEMATICAS", label: "Licenciatura en Matematicas" },
-  { value: "INGENIERIA_QUIMICA", label: "Ingenieria Quimica" },
-  { value: "INGENIERIA_ELECTRONICA", label: "Ingenieria Electronica" },
-] as const;
-
-const UAE_PROGRAM = {
-  value: "LICENCIATURA_ENFERMERIA",
-  label: "Licenciatura en Enfermeria",
-} as const;
 
 const INITIAL_SUBMIT_STATE = {
   status: "idle" as const,
@@ -51,9 +37,7 @@ function normalizeDuplicateValues(values: Iterable<string>) {
 
 function formatMatriculaDuplicateInCaptureMessage(values: Iterable<string>) {
   const normalized = normalizeDuplicateValues(values);
-  if (!normalized.length) {
-    return null;
-  }
+  if (!normalized.length) return null;
   return normalized.length === 1
     ? `La matricula ${normalized[0]} esta duplicada en la captura.`
     : `Las matriculas ${normalized.join(", ")} estan duplicadas en la captura.`;
@@ -61,48 +45,30 @@ function formatMatriculaDuplicateInCaptureMessage(values: Iterable<string>) {
 
 function formatEmailDuplicateInCaptureMessage(values: Iterable<string>) {
   const normalized = normalizeDuplicateValues(values);
-  if (!normalized.length) {
-    return null;
-  }
+  if (!normalized.length) return null;
   return normalized.length === 1
     ? `El correo ${normalized[0]} esta duplicado en la captura.`
     : `Los correos ${normalized.join(", ")} estan duplicados en la captura.`;
 }
 
-function createEmptyRows(count: number): MemberDraft[] {
-  return Array.from({ length: count }, () => ({
-    fullName: "",
-    matricula: "",
-    institutionalEmail: "",
-    gradoGrupo: "",
-    academicUnit: "UACBI",
-    academicProgram: UACBI_PROGRAM_OPTIONS[0].value,
-  }));
-}
+export function MembersSpreadsheet({ units, remainingSlots, maxTeamMembers, action }: MembersSpreadsheetProps) {
+  const defaultUnit = units[0];
+  const defaultProgram = defaultUnit?.programs[0];
 
-function getAllowedProgramsForUnit(unit: "UAE" | "UACBI") {
-  if (unit === "UAE") {
-    return [UAE_PROGRAM];
-  }
-  return [...UACBI_PROGRAM_OPTIONS];
-}
-
-function resolveProgramForUnit(unit: "UAE" | "UACBI", rawProgram: string) {
-  if (unit === "UAE") {
-    return UAE_PROGRAM.value;
-  }
-  const normalized = rawProgram.trim();
-  const matched = UACBI_PROGRAM_OPTIONS.find(
-    (option) => option.value === normalized || option.label.toLowerCase() === normalized.toLowerCase()
+  const createEmptyRows = useMemo(
+    () =>
+      (count: number): MemberDraft[] =>
+        Array.from({ length: count }, () => ({
+          fullName: "",
+          matricula: "",
+          institutionalEmail: "",
+          gradoGrupo: "",
+          academicUnitCode: defaultUnit?.code ?? "",
+          academicProgramCode: defaultProgram?.code ?? "",
+        })),
+    [defaultUnit, defaultProgram]
   );
-  return matched?.value ?? UACBI_PROGRAM_OPTIONS[0].value;
-}
 
-function resolveUnitFromRaw(rawUnit: string): "UAE" | "UACBI" {
-  return rawUnit.trim().toUpperCase() === "UAE" ? "UAE" : "UACBI";
-}
-
-export function MembersSpreadsheet({ remainingSlots, maxTeamMembers, action }: MembersSpreadsheetProps) {
   const [rows, setRows] = useState<MemberDraft[]>(() => createEmptyRows(remainingSlots));
   const hiddenPayloadRef = useRef<HTMLInputElement>(null);
   const [pasteText, setPasteText] = useState("");
@@ -110,34 +76,33 @@ export function MembersSpreadsheet({ remainingSlots, maxTeamMembers, action }: M
   const [warningMessage, setWarningMessage] = useState<string | null>(null);
   const [submitState, submitAction, isSubmitting] = useActionState(action, INITIAL_SUBMIT_STATE);
 
-  const programAliasToValue = useMemo(() => {
-    const pairs: Array<[string, string]> = UACBI_PROGRAM_OPTIONS.flatMap((option) => [
-      [option.label.toLowerCase(), option.value] as const,
-      [option.value.toLowerCase(), option.value] as const,
-    ]);
-    pairs.push([UAE_PROGRAM.label.toLowerCase(), UAE_PROGRAM.value]);
-    pairs.push([UAE_PROGRAM.value.toLowerCase(), UAE_PROGRAM.value]);
-    return new Map<string, string>(pairs);
-  }, []);
+  const unitsByCode = useMemo(() => new Map(units.map((unit) => [unit.code, unit])), [units]);
+  const unitsByLabel = useMemo(
+    () => new Map(units.map((unit) => [unit.label.toLowerCase(), unit])),
+    [units]
+  );
+
+  function getProgramsForUnit(unitCode: string) {
+    return unitsByCode.get(unitCode)?.programs ?? [];
+  }
 
   function updateRow(index: number, patch: Partial<MemberDraft>) {
     setRows((currentRows) =>
       currentRows.map((row, rowIndex) => {
-        if (rowIndex !== index) {
-          return row;
-        }
+        if (rowIndex !== index) return row;
 
-        const nextUnit = (patch.academicUnit ?? row.academicUnit) as "UAE" | "UACBI";
-        const nextProgram = patch.academicProgram ?? row.academicProgram;
+        const nextUnitCode = patch.academicUnitCode ?? row.academicUnitCode;
+        const programsForUnit = getProgramsForUnit(nextUnitCode);
+        const requestedProgramCode = patch.academicProgramCode ?? row.academicProgramCode;
+        const nextProgramCode = programsForUnit.some((program) => program.code === requestedProgramCode)
+          ? requestedProgramCode
+          : (programsForUnit[0]?.code ?? "");
 
         return {
           ...row,
           ...patch,
-          academicUnit: nextUnit,
-          academicProgram:
-            nextUnit === "UAE"
-              ? UAE_PROGRAM.value
-              : resolveProgramForUnit(nextUnit, nextProgram),
+          academicUnitCode: nextUnitCode,
+          academicProgramCode: nextProgramCode,
         };
       })
     );
@@ -149,53 +114,46 @@ export function MembersSpreadsheet({ remainingSlots, maxTeamMembers, action }: M
       .map((line) => line.trim())
       .filter(Boolean);
 
-    if (!lines.length) {
-      return;
-    }
+    if (!lines.length) return;
 
-    let detectedLegacyFiveColumns = false;
+    let hadUnmatchedLabels = false;
 
     setRows((currentRows) => {
       const nextRows = [...currentRows];
 
       for (let index = 0; index < Math.min(lines.length, nextRows.length); index += 1) {
         const columns = lines[index].split("\t");
-        const hasSixColumns = columns.length >= 6;
-        if (!hasSixColumns) {
-          detectedLegacyFiveColumns = true;
+        const unitRaw = String(columns[4] ?? "").trim();
+        const programRaw = String(columns[5] ?? "").trim();
+
+        const matchedUnit = unitsByLabel.get(unitRaw.toLowerCase()) ?? defaultUnit ?? null;
+        if (!matchedUnit || matchedUnit.label.toLowerCase() !== unitRaw.toLowerCase()) {
+          hadUnmatchedLabels = true;
         }
 
-        const unitRaw = hasSixColumns ? String(columns[4] ?? "").trim() : "";
-        const programRaw = String(columns[hasSixColumns ? 5 : 4] ?? "").trim();
-        const inferredProgram = programAliasToValue.get(programRaw.toLowerCase()) ?? programRaw;
-        const inferredUnit =
-          hasSixColumns && unitRaw
-            ? resolveUnitFromRaw(unitRaw)
-            : inferredProgram === UAE_PROGRAM.value
-              ? "UAE"
-              : "UACBI";
+        const matchedProgram =
+          matchedUnit?.programs.find((program) => program.label.toLowerCase() === programRaw.toLowerCase()) ??
+          matchedUnit?.programs[0] ??
+          null;
 
         nextRows[index] = {
           fullName: String(columns[0] ?? "").trim(),
           matricula: String(columns[1] ?? "").trim(),
           institutionalEmail: String(columns[2] ?? "").trim().toLowerCase(),
           gradoGrupo: String(columns[3] ?? "").trim(),
-          academicUnit: inferredUnit,
-          academicProgram: resolveProgramForUnit(inferredUnit, inferredProgram),
+          academicUnitCode: matchedUnit?.code ?? "",
+          academicProgramCode: matchedProgram?.code ?? "",
         };
       }
 
       return nextRows;
     });
 
-    if (detectedLegacyFiveColumns) {
-      setWarningMessage(
-        "Se detecto formato de 5 columnas. Se infirio la unidad academica por la carrera pegada."
-      );
-    } else {
-      setWarningMessage(null);
-    }
-
+    setWarningMessage(
+      hadUnmatchedLabels
+        ? "Algunas filas tenian una unidad o carrera que no coincide exactamente con el catalogo; revisa esas filas."
+        : null
+    );
     setErrorMessage(null);
   }
 
@@ -206,17 +164,10 @@ export function MembersSpreadsheet({ remainingSlots, maxTeamMembers, action }: M
         matricula: row.matricula.trim(),
         institutionalEmail: row.institutionalEmail.trim().toLowerCase(),
         gradoGrupo: row.gradoGrupo.trim(),
-        academicUnit: row.academicUnit,
-        academicProgram:
-          row.academicUnit === "UAE"
-            ? UAE_PROGRAM.value
-            : resolveProgramForUnit("UACBI", row.academicProgram),
+        academicUnitCode: row.academicUnitCode,
+        academicProgramCode: row.academicProgramCode,
       }))
-      .filter((row) =>
-        Boolean(
-          row.fullName || row.matricula || row.institutionalEmail || row.gradoGrupo
-        )
-      );
+      .filter((row) => Boolean(row.fullName || row.matricula || row.institutionalEmail || row.gradoGrupo));
 
     if (!payload.length) {
       throw new Error("No hay integrantes para guardar.");
@@ -233,8 +184,8 @@ export function MembersSpreadsheet({ remainingSlots, maxTeamMembers, action }: M
         !row.matricula ||
         !row.institutionalEmail ||
         !row.gradoGrupo ||
-        !row.academicUnit ||
-        !row.academicProgram
+        !row.academicUnitCode ||
+        !row.academicProgramCode
       ) {
         throw new Error("Completa todos los campos de las filas capturadas o borra la fila.");
       }
@@ -243,26 +194,11 @@ export function MembersSpreadsheet({ remainingSlots, maxTeamMembers, action }: M
         throw new Error("Todos los correos deben terminar en @uan.edu.mx.");
       }
 
-      if (row.academicUnit === "UAE" && row.academicProgram !== UAE_PROGRAM.value) {
-        throw new Error("Para UAE la carrera valida es solo Licenciatura en Enfermeria.");
-      }
-
-      if (
-        row.academicUnit === "UACBI" &&
-        !UACBI_PROGRAM_OPTIONS.some((program) => program.value === row.academicProgram)
-      ) {
-        throw new Error("Para UACBI selecciona una carrera valida.");
-      }
-
       const matriculaKey = row.matricula.toUpperCase();
       const emailKey = row.institutionalEmail.toLowerCase();
 
-      if (matriculas.has(matriculaKey)) {
-        duplicateMatriculas.add(row.matricula);
-      }
-      if (emails.has(emailKey)) {
-        duplicateEmails.add(row.institutionalEmail);
-      }
+      if (matriculas.has(matriculaKey)) duplicateMatriculas.add(row.matricula);
+      if (emails.has(emailKey)) duplicateEmails.add(row.institutionalEmail);
 
       matriculas.add(matriculaKey);
       emails.add(emailKey);
@@ -293,6 +229,17 @@ export function MembersSpreadsheet({ remainingSlots, maxTeamMembers, action }: M
     }
   }
 
+  if (!units.length) {
+    return (
+      <section className="card-next rounded-3xl p-6">
+        <h2 className="text-2xl font-semibold">Captura tipo Excel</h2>
+        <p className="mt-2 text-sm text-amber-300">
+          El organizador aún no configuró unidades académicas para esta edición.
+        </p>
+      </section>
+    );
+  }
+
   if (remainingSlots <= 0) {
     return (
       <section className="card-next rounded-3xl p-6">
@@ -309,7 +256,8 @@ export function MembersSpreadsheet({ remainingSlots, maxTeamMembers, action }: M
       <h2 className="text-2xl font-semibold">Captura tipo Excel</h2>
       <p className="mt-2 text-sm text-muted-foreground">
         Puedes pegar filas desde Excel o Google Sheets con 6 columnas: nombre, matricula, correo,
-        grado/grupo, unidad y carrera.
+        grado/grupo, unidad y carrera (el texto de unidad/carrera debe coincidir con el catálogo de
+        esta edición).
       </p>
       <p className="mt-1 text-sm text-muted-foreground">
         Espacios disponibles: <span className="font-semibold text-foreground">{remainingSlots}</span>
@@ -349,7 +297,7 @@ export function MembersSpreadsheet({ remainingSlots, maxTeamMembers, action }: M
             </thead>
             <tbody>
               {rows.map((row, index) => {
-                const allowedPrograms = getAllowedProgramsForUnit(row.academicUnit);
+                const programsForUnit = getProgramsForUnit(row.academicUnitCode);
                 return (
                   <tr key={`member-row-${index + 1}`} className="border-t border-white/10">
                     <td className="px-3 py-2">
@@ -388,31 +336,26 @@ export function MembersSpreadsheet({ remainingSlots, maxTeamMembers, action }: M
                     </td>
                     <td className="px-3 py-2">
                       <select
-                        value={row.academicUnit}
-                        onChange={(event) =>
-                          updateRow(index, {
-                            academicUnit: event.target.value as "UAE" | "UACBI",
-                          })
-                        }
+                        value={row.academicUnitCode}
+                        onChange={(event) => updateRow(index, { academicUnitCode: event.target.value })}
                         className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none"
                       >
-                        <option value="UACBI">UACBI</option>
-                        <option value="UAE">UAE</option>
+                        {units.map((unit) => (
+                          <option key={unit.code} value={unit.code}>
+                            {unit.label}
+                          </option>
+                        ))}
                       </select>
                     </td>
                     <td className="px-3 py-2">
                       <select
-                        value={row.academicUnit === "UAE" ? UAE_PROGRAM.value : row.academicProgram}
-                        onChange={(event) =>
-                          updateRow(index, {
-                            academicProgram: event.target.value,
-                          })
-                        }
+                        value={row.academicProgramCode}
+                        onChange={(event) => updateRow(index, { academicProgramCode: event.target.value })}
                         className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none"
                       >
-                        {allowedPrograms.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
+                        {programsForUnit.map((program) => (
+                          <option key={program.code} value={program.code}>
+                            {program.label}
                           </option>
                         ))}
                       </select>

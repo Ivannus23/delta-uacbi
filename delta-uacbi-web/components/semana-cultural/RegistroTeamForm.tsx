@@ -3,16 +3,19 @@
 import { MAX_TEAM_MEMBERS } from "@/lib/semana-cultural-config";
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createTeamWithState, type CreateTeamState } from "@/app/semana-cultural/registro/actions";
-import { RegistroUnidadProgramaField } from "./RegistroUnidadProgramaField";
+import type { CreateTeamState } from "@/app/semana-cultural/[orgSlug]/registro/actions";
+import { RegistroUnidadProgramaField, type UnitOption } from "./RegistroUnidadProgramaField";
 import { SuggestionSelect } from "./SuggestionSelect";
 
 type RegistroTeamFormProps = {
+  orgSlug: string;
   userName: string;
   userEmail: string;
   availableAnimales: string[];
   noAnimalesAvailable: boolean;
   canRegisterTeam: boolean;
+  academicUnits: UnitOption[];
+  action: (prevState: CreateTeamState, formData: FormData) => Promise<CreateTeamState>;
 };
 
 const INITIAL_CREATE_TEAM_STATE: CreateTeamState = {
@@ -22,23 +25,26 @@ const INITIAL_CREATE_TEAM_STATE: CreateTeamState = {
 };
 
 export function RegistroTeamForm({
+  orgSlug,
   userName,
   userEmail,
   availableAnimales,
   noAnimalesAvailable,
   canRegisterTeam,
+  academicUnits,
+  action,
 }: RegistroTeamFormProps) {
   const router = useRouter();
   const [submitState, submitAction, isSubmitting] = useActionState(
-    createTeamWithState,
+    action,
     INITIAL_CREATE_TEAM_STATE
   );
 
   useEffect(() => {
     if (submitState.status === "success" && submitState.teamId) {
-      router.push(`/semana-cultural/equipos/${submitState.teamId}`);
+      router.push(`/semana-cultural/${orgSlug}/equipos/${submitState.teamId}`);
     }
-  }, [router, submitState.status, submitState.teamId]);
+  }, [router, orgSlug, submitState.status, submitState.teamId]);
 
   return (
     <form action={submitAction} className="mt-8 card-next rounded-3xl p-6">
@@ -57,6 +63,7 @@ export function RegistroTeamForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <RegistroUnidadProgramaField
+          units={academicUnits}
           unidadName="responsableAcademicUnit"
           programName="responsableAcademicProgram"
           unidadLabel="Unidad academica del responsable"

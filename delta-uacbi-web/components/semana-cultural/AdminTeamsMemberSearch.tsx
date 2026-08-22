@@ -23,6 +23,7 @@ type TeamSearchItem = {
 
 type SearchComponentProps = {
   teams: TeamSearchItem[];
+  orgSlug: string;
 };
 
 type MemberSearchResult = TeamMemberSearchItem & {
@@ -44,7 +45,7 @@ function matchesAllTerms(terms: string[], values: Array<string | null | undefine
   return terms.every((term) => normalizedValues.some((value) => value.includes(term)));
 }
 
-export function AdminTeamsMemberSearch({ teams }: SearchComponentProps) {
+export function AdminTeamsMemberSearch({ teams, orgSlug }: SearchComponentProps) {
   const [query, setQuery] = useState("");
   const queryTerms = useMemo(
     () => normalizeSearchText(query).split(/\s+/).filter(Boolean),
@@ -169,7 +170,7 @@ export function AdminTeamsMemberSearch({ teams }: SearchComponentProps) {
                         </td>
                         <td className="px-4 py-3">
                           <Link
-                            href={`/semana-cultural/equipos/${team.id}`}
+                            href={`/semana-cultural/${orgSlug}/equipos/${team.id}`}
                             className="rounded-full border border-white/10 px-3 py-1 text-xs text-muted-foreground hover:text-foreground"
                           >
                             Ver equipo
@@ -226,7 +227,7 @@ export function AdminTeamsMemberSearch({ teams }: SearchComponentProps) {
                         </td>
                         <td className="px-4 py-3">
                           <Link
-                            href={`/semana-cultural/equipos/${member.teamId}`}
+                            href={`/semana-cultural/${orgSlug}/equipos/${member.teamId}`}
                             className="rounded-full border border-white/10 px-3 py-1 text-xs text-muted-foreground hover:text-foreground"
                           >
                             Abrir equipo

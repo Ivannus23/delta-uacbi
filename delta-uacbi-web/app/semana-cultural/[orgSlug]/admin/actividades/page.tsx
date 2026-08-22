@@ -1,0 +1,528 @@
+import { Navbar } from "@/components/Navbar";
+import { Footer } from "@/components/Footer";
+import { HeaderSemana } from "@/components/semana-cultural/HeaderSemana";
+import { SuggestionSelect } from "@/components/semana-cultural/SuggestionSelect";
+import { requireOrgStaff } from "@/lib/auth";
+import { getActiveEditionWithEvents, getAvailableTeams } from "@/lib/events";
+import { getAvailableMembers } from "@/lib/members";
+import { resolveOrganization } from "@/lib/semana-cultural";
+import { getScoreCategories } from "@/lib/semana-cultural-catalog";
+import {
+  formatProgramLabel,
+  formatUnitLabel,
+  getTeamComposition,
+} from "@/lib/semana-cultural-config";
+import {
+  createEvent,
+  registerTeamToEvent,
+  removeTeamFromEvent,
+  registerMemberToEvent,
+  removeMemberFromEvent,
+} from "./actions";
+import { updateEventStatus, toggleCheckIn } from "./operations";
+import { EventStatus, EventType } from "@prisma/client";
+import { EventScoringFields } from "./EventScoringFields";
+
+export const revalidate = 0;
+const DISPLAY_TIME_ZONE = "America/Mazatlan";
+const LEGACY_EVENT_FALLBACK_DURATION_MS = 60 * 60 * 1000;
+
+const eventTypes = [
+  { value: EventType.DEPORTIVA, label: "Deportiva" },
+  { value: EventType.CULTURAL, label: "Cultural" },
+  { value: EventType.RECREATIVA, label: "Recreativa" },
+  { value: EventType.ACADEMICA, label: "Academica" },
+  { value: EventType.VIDEOJUEGO, label: "Videojuego" },
+  { value: EventType.OTRA, label: "Otra" },
+];
+
+function formatEventDate(date: Date) {
+  return new Intl.DateTimeFormat("es-MX", {
+    timeZone: DISPLAY_TIME_ZONE,
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  }).format(date);
+}
+
+function formatEventTime(date: Date) {
+  return new Intl.DateTimeFormat("es-MX", {
+    timeZone: DISPLAY_TIME_ZONE,
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function getEventStart(event: { startTime: Date | null; eventDate: Date }) {
+  return event.startTime ?? event.eventDate;
+}
+
+function getEventEnd(event: { startTime: Date | null; endTime: Date | null; eventDate: Date }) {
+  const start = getEventStart(event);
+  return event.endTime ?? new Date(start.getTime() + LEGACY_EVENT_FALLBACK_DURATION_MS);
+}
+
+function formatEventSchedule(event: { startTime: Date | null; endTime: Date | null; eventDate: Date }) {
+  const start = getEventStart(event);
+  const end = getEventEnd(event);
+  return `${formatEventDate(event.eventDate)} · ${formatEventTime(start)} - ${formatEventTime(end)}`;
+}
+
+function statusLabel(status: EventStatus) {
+  switch (status) {
+    case EventStatus.BORRADOR:
+      return "Borrador";
+    case EventStatus.ABIERTA:
+      return "Abierta";
+    case EventStatus.CERRADA:
+      return "Cerrada";
+    case EventStatus.FINALIZADA:
+      return "Finalizada";
+    default:
+      return status;
+  }
+}
+
+function getEventScoreLabel(
+  event: { isScored: boolean; scoreCategory: { label: string } | null },
+  variant: "admin" | "schedule" = "admin"
+) {
+  if (event.isScored) {
+    return event.scoreCategory?.label ?? "Sin categoría";
+  }
+
+  return variant === "schedule" ? "Solo cronograma" : "No puntuable";
+}
+
+export default async function AdminActividadesPage({
+  params,
+}: {
+  params: Promise<{ orgSlug: string }>;
+}) {
+  const { orgSlug } = await params;
+  const organization = await resolveOrganization(orgSlug);
+  await requireOrgStaff(organization.id);
+
+  const data = await getActiveEditionWithEvents(organization.id);
+  const [teams, members, scoreCategories] = await Promise.all([
+    getAvailableTeams(organization.id),
+    getAvailableMembers(organization.id),
+    data ? getScoreCategories(data.edition.id) : Promise.resolve([]),
+  ]);
+
+  const events = data?.events ?? [];
+
+  return (
+    <>
+      <Navbar />
+      <main className="container py-10">
+        <HeaderSemana orgSlug={orgSlug} edition={data?.edition} />
+
+        <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+          <section className="card-next rounded-3xl p-6">
+            <h2 className="text-2xl font-semibold">Nueva actividad</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Crea actividades nuevas o complementarias del cronograma.
+            </p>
+
+            <form action={createEvent.bind(null, organization.id, orgSlug)} className="mt-6 grid gap-4">
+              <div>
+                <label className="mb-2 block text-sm text-muted-foreground">Nombre</label>
+                <input
+                  name="name"
+                  required
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
+                  placeholder="Ej. Torneo relampago de ajedrez"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm text-muted-foreground">Slug</label>
+                <input
+                  name="slug"
+                  required
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
+                  placeholder="torneo-relampago-de-ajedrez"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm text-muted-foreground">Tipo</label>
+                <SuggestionSelect
+                  name="type"
+                  required
+                  options={eventTypes}
+                  placeholder="Selecciona tipo"
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
+                />
+              </div>
+
+              <EventScoringFields categories={scoreCategories} />
+
+              <div>
+                <label className="mb-2 block text-sm text-muted-foreground">Lugar</label>
+                <input
+                  name="place"
+                  required
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
+                  placeholder="Lugar de la actividad"
+                />
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div>
+                  <label className="mb-2 block text-sm text-muted-foreground">Fecha de la actividad</label>
+                  <input
+                    type="date"
+                    name="eventDate"
+                    required
+                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm text-muted-foreground">Hora de inicio</label>
+                  <input
+                    type="time"
+                    name="startTime"
+                    required
+                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm text-muted-foreground">Hora de termino</label>
+                  <input
+                    type="time"
+                    name="endTime"
+                    required
+                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
+                  />
+                </div>
+              </div>
+
+              <p className="text-xs text-muted-foreground">Se interpreta en horario local de Mazatlan.</p>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm text-muted-foreground">Cupo de equipos</label>
+                  <input
+                    type="number"
+                    min={1}
+                    name="teamCapacity"
+                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
+                    placeholder="Opcional"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm text-muted-foreground">Cupo de integrantes</label>
+                  <input
+                    type="number"
+                    min={1}
+                    name="memberCapacity"
+                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
+                    placeholder="Opcional"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm text-muted-foreground">Descripcion</label>
+                <textarea
+                  name="description"
+                  rows={3}
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
+                  placeholder="Descripcion breve"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="btn-sheen rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm hover:bg-white/10"
+              >
+                Crear actividad
+              </button>
+            </form>
+          </section>
+
+          <section className="grid gap-6">
+            <section className="card-next rounded-3xl p-6">
+              <h2 className="text-2xl font-semibold">Inscribir equipo a actividad</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Asigna equipos aprobados a las actividades disponibles.
+              </p>
+
+              <form action={registerTeamToEvent.bind(null, organization.id, orgSlug)} className="mt-6 grid gap-4">
+                <div>
+                  <label className="mb-2 block text-sm text-muted-foreground">Actividad</label>
+                  <SuggestionSelect
+                    name="eventId"
+                    required
+                    options={events.map((event) => ({
+                      value: event.id,
+                      label: `${event.name} · ${getEventScoreLabel(event, "schedule")}`,
+                    }))}
+                    placeholder="Selecciona actividad"
+                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm text-muted-foreground">Equipo</label>
+                  <SuggestionSelect
+                    name="teamId"
+                    required
+                    options={teams.map((team) => ({
+                      value: team.id,
+                      label: `${team.animal} · ${getTeamComposition(
+                        team.members.map((member) => member.academicUnitCode)
+                      )}`,
+                    }))}
+                    placeholder="Selecciona equipo"
+                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm text-muted-foreground">Notas</label>
+                  <textarea
+                    name="notes"
+                    rows={2}
+                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
+                    placeholder="Opcional"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="btn-sheen rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm hover:bg-white/10"
+                >
+                  Registrar en actividad
+                </button>
+              </form>
+            </section>
+
+            <section className="card-next rounded-3xl p-6">
+              <h2 className="text-2xl font-semibold">Inscribir integrante a actividad</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Usalo para box, videojuegos u otras actividades individuales.
+              </p>
+
+              <form action={registerMemberToEvent.bind(null, organization.id, orgSlug)} className="mt-6 grid gap-4">
+                <div>
+                  <label className="mb-2 block text-sm text-muted-foreground">Actividad</label>
+                  <SuggestionSelect
+                    name="eventId"
+                    required
+                    options={events.map((event) => ({
+                      value: event.id,
+                      label: `${event.name} · ${getEventScoreLabel(event, "schedule")}`,
+                    }))}
+                    placeholder="Selecciona actividad"
+                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm text-muted-foreground">Integrante</label>
+                  <SuggestionSelect
+                    name="memberId"
+                    required
+                    options={members.map((member) => ({
+                      value: member.id,
+                      label: `${member.fullName} · ${member.team.animal} · ${formatUnitLabel(
+                        member.academicUnitCode
+                      )} · ${formatProgramLabel(member.academicProgramCode)}`,
+                    }))}
+                    placeholder="Selecciona integrante"
+                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm text-muted-foreground">Notas</label>
+                  <textarea
+                    name="notes"
+                    rows={2}
+                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
+                    placeholder="Opcional"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="btn-sheen rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm hover:bg-white/10"
+                >
+                  Registrar integrante
+                </button>
+              </form>
+            </section>
+
+            <section className="card-next rounded-3xl p-6">
+              <h2 className="text-2xl font-semibold">Actividades e inscritos</h2>
+
+              <div className="mt-6 grid gap-4">
+                {events.length ? (
+                  events.map((event) => (
+                    <div key={event.id} className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <h3 className="text-lg font-semibold">{event.name}</h3>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            {formatEventSchedule(event)} · {event.place}
+                          </p>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-muted-foreground">
+                            {getEventScoreLabel(event)}
+                          </span>
+                          <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-muted-foreground">
+                            {statusLabel(event.status)}
+                          </span>
+                          <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-muted-foreground">
+                            {event.registrations.length}
+                            {event.teamCapacity ? ` / ${event.teamCapacity}` : ""} registros
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {event.status !== EventStatus.ABIERTA ? (
+                          <form action={updateEventStatus.bind(null, organization.id, orgSlug, event.id, EventStatus.ABIERTA)}>
+                            <button
+                              type="submit"
+                              className="rounded-full border border-white/10 px-3 py-1 text-xs text-muted-foreground hover:text-foreground"
+                            >
+                              Abrir
+                            </button>
+                          </form>
+                        ) : null}
+
+                        {event.status !== EventStatus.CERRADA ? (
+                          <form action={updateEventStatus.bind(null, organization.id, orgSlug, event.id, EventStatus.CERRADA)}>
+                            <button
+                              type="submit"
+                              className="rounded-full border border-white/10 px-3 py-1 text-xs text-muted-foreground hover:text-foreground"
+                            >
+                              Cerrar
+                            </button>
+                          </form>
+                        ) : null}
+
+                        {event.status !== EventStatus.FINALIZADA ? (
+                          <form action={updateEventStatus.bind(null, organization.id, orgSlug, event.id, EventStatus.FINALIZADA)}>
+                            <button
+                              type="submit"
+                              className="rounded-full border border-white/10 px-3 py-1 text-xs text-muted-foreground hover:text-foreground"
+                            >
+                              Finalizar
+                            </button>
+                          </form>
+                        ) : null}
+
+                        <a
+                          href={`/api/semana-cultural/${orgSlug}/export-event-registrations?eventId=${event.id}`}
+                          className="rounded-full border border-white/10 px-3 py-1 text-xs text-muted-foreground hover:text-foreground"
+                        >
+                          Exportar inscritos
+                        </a>
+                      </div>
+
+                      {event.registrations.length ? (
+                        <div className="mt-4 overflow-hidden rounded-2xl border border-white/10">
+                          <table className="w-full text-left">
+                            <thead className="bg-white/5 text-xs text-muted-foreground">
+                              <tr>
+                                <th className="px-4 py-3">Equipo / integrante</th>
+                                <th className="px-4 py-3">Unidad o composicion</th>
+                                <th className="px-4 py-3">Check-in</th>
+                                <th className="px-4 py-3">Notas</th>
+                                <th className="px-4 py-3">Acciones</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {event.registrations.map((registration) => (
+                                <tr key={registration.id} className="border-t border-white/10">
+                                  <td className="px-4 py-3 font-medium">
+                                    {registration.member
+                                      ? `${registration.member.fullName} · ${registration.team.animal}`
+                                      : registration.team.animal}
+                                  </td>
+                                  <td className="px-4 py-3 text-muted-foreground">
+                                    {registration.member
+                                      ? formatUnitLabel(registration.member.academicUnitCode)
+                                      : getTeamComposition(
+                                          registration.team.members.map((member) => member.academicUnitCode)
+                                        )}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-muted-foreground">
+                                      {registration.checkedIn ? "Presente" : "Pendiente"}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 text-muted-foreground">
+                                    {registration.notes || "—"}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <div className="flex flex-wrap gap-2">
+                                      <form
+                                        action={toggleCheckIn.bind(
+                                          null,
+                                          organization.id,
+                                          orgSlug,
+                                          registration.id,
+                                          !registration.checkedIn
+                                        )}
+                                      >
+                                        <button
+                                          type="submit"
+                                          className="rounded-full border border-white/10 px-3 py-1 text-xs text-muted-foreground hover:text-foreground"
+                                        >
+                                          {registration.checkedIn ? "Quitar check-in" : "Hacer check-in"}
+                                        </button>
+                                      </form>
+
+                                      <form
+                                        action={
+                                          registration.memberId
+                                            ? removeMemberFromEvent.bind(null, organization.id, orgSlug, registration.id)
+                                            : removeTeamFromEvent.bind(null, organization.id, orgSlug, registration.id)
+                                        }
+                                      >
+                                        <button
+                                          type="submit"
+                                          className="rounded-full border border-white/10 px-3 py-1 text-xs text-muted-foreground hover:text-foreground"
+                                        >
+                                          Eliminar
+                                        </button>
+                                      </form>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <p className="mt-4 text-sm text-muted-foreground">
+                          Aun no hay equipos o integrantes inscritos en esta actividad.
+                        </p>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-muted-foreground">
+                    Aun no hay actividades registradas.
+                  </div>
+                )}
+              </div>
+            </section>
+          </section>
+        </div>
+      </main>
+      <Footer />
+    </>
+  );
+}

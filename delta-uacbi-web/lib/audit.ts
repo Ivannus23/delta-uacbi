@@ -6,6 +6,7 @@ export async function createAuditLog(params: {
   entityType: string;
   entityId?: string;
   detail?: string;
+  editionId?: string;
   createdById?: string | null;
 }) {
   let createdById = params.createdById ?? null;
@@ -28,6 +29,7 @@ export async function createAuditLog(params: {
       entityType: params.entityType,
       entityId: params.entityId,
       detail: params.detail,
+      editionId: params.editionId,
       createdById,
     },
   });

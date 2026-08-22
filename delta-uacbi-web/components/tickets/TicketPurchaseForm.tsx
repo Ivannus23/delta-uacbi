@@ -10,6 +10,11 @@ import {
 } from "@/app/tickets/actions";
 import { formatTicketMoney } from "@/lib/tickets/format";
 import { TicketPaymentMode } from "@/lib/tickets/config";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { Alert } from "@/components/ui/Alert";
+import { Input } from "@/components/ui/Input";
 
 type TicketPurchaseFormProps = {
   eventId: string;
@@ -39,45 +44,22 @@ export function TicketPurchaseForm({
   }, [router, state.publicToken, state.status]);
 
   return (
-    <section className="card-next rounded-3xl p-6">
-      <h2 className="text-2xl font-semibold">Comprar boletos</h2>
+    <Card variant="surface">
+      <h2 className="font-display text-2xl font-semibold">Comprar boletos</h2>
       <p className="mt-2 text-sm text-muted-foreground">
         Selecciona cantidades por tipo de boleto y completa los datos del comprador para generar una orden.
       </p>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Modo de pago activo: {paymentMode === "SIMULATED" ? "SIMULADO" : paymentMode === "MERCADOPAGO" ? "MERCADO PAGO" : "NO DISPONIBLE"}.
-      </p>
+      <div className="mt-3">
+        <Badge variant="tickets" dot>
+          Modo de pago: {paymentMode === "SIMULATED" ? "Simulado" : paymentMode === "MERCADOPAGO" ? "Mercado Pago" : "No disponible"}
+        </Badge>
+      </div>
 
       <form action={formAction} className="mt-6 grid gap-5">
         <div className="grid gap-4 md:grid-cols-3">
-          <div>
-            <label className="mb-2 block text-sm text-muted-foreground">Nombre del comprador</label>
-            <input
-              name="buyerName"
-              required
-              className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
-              placeholder="Nombre completo"
-            />
-          </div>
-          <div>
-            <label className="mb-2 block text-sm text-muted-foreground">Correo</label>
-            <input
-              type="email"
-              name="buyerEmail"
-              required
-              className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
-              placeholder="correo@uan.edu.mx"
-            />
-          </div>
-          <div>
-            <label className="mb-2 block text-sm text-muted-foreground">Telefono</label>
-            <input
-              name="buyerPhone"
-              required
-              className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none"
-              placeholder="7711234567"
-            />
-          </div>
+          <Input label="Nombre del comprador" name="buyerName" required placeholder="Nombre completo" />
+          <Input label="Correo" type="email" name="buyerEmail" required placeholder="correo@uan.edu.mx" />
+          <Input label="Telefono" name="buyerPhone" required placeholder="7711234567" />
         </div>
 
         <div className="overflow-hidden rounded-2xl border border-white/10">
@@ -107,7 +89,7 @@ export function TicketPurchaseForm({
                       <td className="px-4 py-3 text-muted-foreground">{available}</td>
                       <td className="px-4 py-3 text-muted-foreground">{ticketType.maxPerOrder}</td>
                       <td className="px-4 py-3">
-                        <input
+                        <Input
                           type="number"
                           min={0}
                           step={1}
@@ -115,7 +97,7 @@ export function TicketPurchaseForm({
                           defaultValue={0}
                           name={`qty_${ticketType.id}`}
                           disabled={available <= 0}
-                          className="w-24 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none disabled:opacity-50"
+                          className="w-24"
                         />
                       </td>
                     </tr>
@@ -132,29 +114,32 @@ export function TicketPurchaseForm({
           </table>
         </div>
 
-        {state.status === "error" ? <p className="text-sm text-rose-300">{state.message}</p> : null}
+        {state.status === "error" ? <Alert variant="error">{state.message}</Alert> : null}
         {state.status === "success" && state.publicToken ? (
-          <p className="text-sm text-emerald-300">
+          <Alert variant="success">
             Orden creada. Si no te redirige automaticamente, abre{" "}
             <Link className="underline" href={`/tickets/orden/${state.publicToken}`}>
               tu orden
             </Link>
             .
-          </p>
+          </Alert>
         ) : null}
 
         {!paymentAvailable && paymentUnavailableMessage ? (
-          <p className="text-sm text-amber-300">{paymentUnavailableMessage}</p>
+          <Alert variant="warning">{paymentUnavailableMessage}</Alert>
         ) : null}
 
-        <button
+        <Button
           type="submit"
-          disabled={isPending || !ticketTypes.length || !paymentAvailable}
-          className="btn-sheen w-fit rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm hover:bg-white/10 disabled:opacity-50"
+          variant="primary"
+          size="lg"
+          loading={isPending}
+          disabled={!ticketTypes.length || !paymentAvailable}
+          className="w-fit"
         >
           {isPending ? "Creando orden..." : `Crear orden para ${eventTitle}`}
-        </button>
+        </Button>
       </form>
-    </section>
+    </Card>
   );
 }
